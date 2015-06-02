@@ -28,29 +28,18 @@ examples
 import ConfigParser
 import os
 
-
 # Config file
-config_file_def = os.path.join(os.path.dirname(__file__),"default_config.ini")
-config_file_usr = os.path.join(os.path.dirname(__file__),"config.ini")
 config_parser = ConfigParser.ConfigParser()
 config_parser.optionxform = str
-config_parser.read(config_file_def)
-config_parser.read(config_file_usr)
-#config_parser.read(os.path.expanduser("~/.tessrc"))
-#config_parser.read("config.ini")
-
-# Fill in missing things that are necessary
-#if not config_parser.has_option('general','qhulldir'):
-#    qhulldir = None
-#    while not isinstance(qhulldir,str) and not os.path.isdir(qhulldir):
-#        config['qhulldir'] = input('Enter location of qhull installation:')
-#    
-# 
+config_parser.read(os.path.join(os.path.dirname(__file__),"default_config.ini"))
+config_parser.read(os.path.join(os.path.dirname(__file__),"config.ini"))
+config_parser.read(os.path.expanduser("~/.tessrc"))
+config_parser.read("config.ini")
 
 # General options
 config = {}
 if config_parser.has_option('general','outputdir'):
-    config['outputdir'] = os.path.expanduser(config_parser.get('general','outputdir').strip())
+    config['outputdir'] = os.expanduser(config_parser.get('general','outputdir').strip())
 else:
     config['outputdir'] = os.getcwd()
 
