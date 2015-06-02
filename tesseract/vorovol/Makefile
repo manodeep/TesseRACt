@@ -10,8 +10,8 @@ ifeq ($(SYSTYPE),"Accre")
 CC        = gcc
 OPTIMIZE  = -O3 -march=native -mavx -Wall -Wextra -std=c99
 MLIBS     = -lm
-QLIB      = -L/Users/cfh5058/qhull-2012.1/src/ -lqhull
-QINC      = -I/Users/cfh5058/qhull-2012.1/src/
+QLIB      = -L/home/langmm/code/python/mmlpy/trunk/tesseract/qhull2002.1/src -lqhull
+QINC      = -I/home/langmm/code/python/mmlpy/trunk/tesseract/qhull2002.1/src
 endif
 
 
