@@ -12,13 +12,10 @@ techniques for calculating concentration, please see the accompanying paper
 Lang et al. (2015).
 
 This package includes:
- - vorovol: a c program for computing the Voronoi tessellation for particle data
-   in a number of formats including Gadget-2 snapshots, ascii, and binary files.
- - routines for compiling, running, and parsing vorovol output
- - routines for computing concentrations using particles volumes, traditional
-   fitting to an NFW profile, and non-parametric techniques that assume 
- - routines and test halos for running many of the performance tests 
-   presented in Lang et al. (2015)
+- vorovol: a c program for computing the Voronoi tessellation for particle data in a number of formats including Gadget-2 snapshots, ascii, and binary files.
+- routines for compiling, running, and parsing vorovol output
+- routines for computing concentrations using particles volumes, traditional fitting to an NFW profile, and non-parametric techniques that assume 
+- routines and test halos for running many of the performance tests presented in Lang et al. (2015)
 
 --------------------------------------------------------------------------------
 
