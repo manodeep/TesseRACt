@@ -1,6 +1,7 @@
 --------------------------------------------------------------------------------
+
 INTRODUCTION
-------------
+============
 
 The tesseract package is designed to compute concentrations of simulated dark
 matter halos from volume info for particles generated using Voronoi tesselation.
@@ -20,8 +21,21 @@ This package includes:
    presented in Lang et al. (2015)
 
 --------------------------------------------------------------------------------
+
+INSTALLATION
+============
+
+Only installation through cloning the source code is currently supported.
+
+The easiest way to install TesseRACt from the source code is to clone the repository using mercurial. 
+ 1. **Install mercurial if you don't have it.** This is easy to do via `pip install hg` or `pip install hg --user` if you do not have admin privileges. 
+ 2. **Clone the TesseRACt repository.** Move to the directory where you want to install TesseRACt. Then issue the command `hg clone [https link]` where `[https link]` should be the bitbucket link.
+
+--------------------------------------------------------------------------------
+
 TODO
-----
+====
+Things that are being worked on:
  - liscense
  - create example parameter file
  - customize Makefile on install
