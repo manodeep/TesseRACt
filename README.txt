@@ -29,7 +29,7 @@ The easiest way to install TesseRACt from the source code is to clone the reposi
 
 1. **Install mercurial if you don't have it.** This is easy to do via `pip install hg` (or `pip install hg --user` if you do not have admin privileges).
 2. **Clone the TesseRACt repository.** Move to the directory where you want to install TesseRACt. Then issue the command `hg clone [https link]` where `[https link]` should be the bitbucket link. 
-3. **Install qhull if you don't have it.** Download qhull from [here](file:///home/origins/neyrinck/public_html/voboz/qhull2002.1.tgz) and install it. Edit the vorovol/Makefile to use the path of the qhull source directory.
+3. **Install qhull if you don't have it.** Download qhull and install it. Edit the vorovol/Makefile to use the path of the qhull source directory.
 4. **Run the setup script.** Move into the tesseract directory and run the setup script via `python setup.py install` (or `python setup.py install --user` if you do not have admin privileges).
 5. **Test the installation.** Open python and import TesseRACt via `import tesseract`. Then run help(tesseract).
 
