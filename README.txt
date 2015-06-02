@@ -22,7 +22,7 @@ This package includes:
 --------------------------------------------------------------------------------
 TODO
 ----
- - ask Keivan about liscense
+ - liscense
  - create example parameter file
  - customize Makefile on install
  - ask user if qhull should be downloaded & update parameter file
