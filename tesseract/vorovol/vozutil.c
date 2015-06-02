@@ -52,7 +52,6 @@ int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, flo
   if (!exitcode) {
     printf("Thread %03d:     -------------------------\n",ThisTask);
     printf("Thread %03d:     Finding volumes ...\n",ThisTask);
-    if (NTask == 1) fflush(stdout);
     for (i=0; i<nvp; i++) { /* Just the original particles */
       if (exitcode) break;
       /* Particles that have adjacencies */
@@ -70,7 +69,7 @@ int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, flo
         }
         exitcode = adj2vol(deladjs, adjs[i].nadj, &((*vols)[i]), ThisTask);
         if (exitcode) break;
-        (*vols)[i] *= (float)np; /* Why? */
+        (*vols)[i] *= (float)nvp; /* Why? */
       }
       /* Particles bordering upper delaunay facet */
       else if (adjs[i].nadj == -1) {

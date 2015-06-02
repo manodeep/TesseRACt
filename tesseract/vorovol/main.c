@@ -198,586 +198,437 @@ int main(int argc, char *argv[]) {
   endrun(0, 0);
 }
 
-int tesselate(coordT *parts, int nvp, int nvpbuf, int nvpall, int ThisTask) {
-  PARTADJ *adjs;
-  coordT deladjs[3*MAXVERVER];
-  float *vols = 0;
-  int i,j;
-  int *orig = 0;
-  FILE *out;
-  double totalvol;
-  float predict;
-  int exitcode = 0;
-  int ninfinite;
-  int d;
+/* int make_block(int sector[3], float **p, int np, coordT **pblock, int **orig, int ThisTask) { */
+/*   float width, width2, totwidth2; */
+/*   float guard_space, guard_gap; */
+/*   PARTADJ *adjs; */
+/*   float center[3], rmin[3], rmax[3]; */
+/*   coordT rtemp[3]; */
+/*   coordT deladjs[3*MAXVERVER]; */
+/*   int nvp, nvpbuf, nvpall, nvpgrd; */
+/*   int i,j,inbuff, inmain; */
+/*   float predict; */
+/*   int exitcode = 0; */
+/*   int d; */
 
-  /* Allocate adjacencies */
-  if (!exitcode) {
-    adjs = (PARTADJ *)malloc(np*sizeof(PARTADJ));
-    if (adjs == NULL) {
-      printf("Thread %03d: Unable to allocate adjs\n",ThisTask);
-      exitcode = 1300;
-    }
-  }
+/*   /\* Print info to start *\/ */
+/*   printf("Thread %03d: Block %02d.%02d.%02d\n", */
+/* 	 ThisTask,sector[0],sector[1],sector[2]); */
+/*   printf("Thread %03d:     -------------------------\n",ThisTask); */
 
-  /* Tesselate */
-  if (!exitcode) {
-    printf("\n");
-    printf("Thread %03d:     File read.  Tessellating ...\n",ThisTask);
-    fflush(stdout);
-    exitcode = delaunadj(parts, nvp, nvpbuf, nvpall, All.PeriodicBoundariesOn, &adjs, ThisTask);
-    printf("Thread %03d:     Done Tessellating. exitcode=%d\n",ThisTask,exitcode);
-    fflush(stdout);
-  }
+/*   /\* Determine the size of the box *\/ */
+/*   width = 1./(float)All.NumDivide; */
+/*   width2 = 0.5*width; */
+/*   /\* totwidth = width + 2.*All.Border; *\/ */
+/*   totwidth2 = width2 + All.Border; */
 
-  /* Allocate volumes */
-  if (!exitcode) {
-    vols = (float *)malloc(nvp*sizeof(float));
-    if (vols == NULL) {
-      printf("Thread %03d: Unable to allocate vols\n",ThisTask);
-      exitcode = 1400;
-    }
-  }
+/*   /\* Determine spacing of guard points *\/ */
+/*   DL center[d] = ((float)sector[d]+0.5)*width; */
+/*   guard_space = width/(float)NGUARD; */
+/*   if ((All.Border*All.Border - 2.*guard_space*guard_space) < 0.) { */
+/*     printf("Thread %03d: border = %f, guard_space = %f.\n", */
+/* 	   ThisTask,All.Border,guard_space); */
+/*     printf("Thread %03d: Not enough guard points for given border.\nIncrease guards to >= %f.\n", */
+/*            ThisTask,sqrt(2.)*width/All.Border); */
+/*     exitcode = 1021; */
+/*   } */
+/*   if (!exitcode) { */
+/*     guard_gap = (All.Border / 2.)*(1. + sqrt(1 - 2.*guard_space*guard_space/(All.Border*All.Border))); */
+/*     printf("Thread %03d:     guard_space = %f, border = %f, guard_gap = %f.\n", */
+/* 	   ThisTask,guard_space,All.Border,guard_gap); */
+/*     printf("Thread %03d:     center = (%4.2f, %4.2f, %4.2f)\n", */
+/* 	   ThisTask,center[0],center[1],center[2]); */
+/*     printf("\n"); */
 
-  /* Calculate volumes*/
-  if (!exitcode) {
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Finding volumes ...\n",ThisTask); 
-    if (NTask == 1) fflush(stdout);
-    for (i=0; i<nvp; i++) { /* Just the original particles */
-      if (exitcode) break;
-      /* Particles that have adjacencies */
-      if (adjs[i].nadj > 0) {
-	for (j = 0; j < adjs[i].nadj; j++) {
-	  for (d = 0; d < 3; d++) {
-	    /* Distance between particle and adjacent particle */
-	    deladjs[3*j + d] = parts[3*adjs[i].adj[j]+d] - parts[3*i+d];
-	    /* Wrap periodic */
-	    if (All.PeriodicBoundariesOn) {
-	      if (deladjs[3*j+d] < -0.5) deladjs[3*j+d]++;
-	      if (deladjs[3*j+d] >  0.5) deladjs[3*j+d]--;
-	    }
-	  }
-	}
-	exitcode = adj2vol(deladjs, adjs[i].nadj, &(vols[i]), ThisTask);
-	if (exitcode) break;
-	vols[i] *= (float)np; /* Why? */
-      }
-      /* Particles bordering upper delaunay facet */
-      else if (adjs[i].nadj == -1) {
-	vols[i] = (float)(-1); /* INFINITY; */
-      }
-      /* Particles that have a weird number of adjacencies */
-      else {
-	printf("Thread %03d: Particle %d has nadj=%d\n",ThisTask,i,adjs[i].nadj);
-	exitcode = 666;
-      }
-    }
-  }
-
-  /* Continue if no exit code */
-  if (!exitcode) {
-    /* Get the adjacencies back to their original values */
-    for (i=0; i<nvp; i++) {
-      for (j = 0; j < adjs[i].nadj; j++) {
-	adjs[i].adj[j] = orig[adjs[i].adj[j]];
-      }
-    }
+/*     /\* Count guard particles *\/ */
+/*     nvpgrd = 0; */
+/*     DL { */
+/*       if (All.PeriodicBoundariesOn || (sector[d]!=0)) nvpgrd += (NGUARD+1)*(NGUARD+1); */
+/*       if (All.PeriodicBoundariesOn || (sector[d]!=(All.NumDivide-1))) nvpgrd+= (NGUARD+1)*(NGUARD+1); */
+/*     } */
+/*     printf("Thread %03d:     %d guard points will be added.\n",ThisTask,nvpgrd); */
   
-    /* Calculate total and average volumne */
-    totalvol = 0.;
-    ninfinite = 0;
-    for (i=0;i<nvp; i++) {
-      if (isfinite(vols[i]) && (vols[i]>=0)) {
-	totalvol += (double)vols[i];
-      }
-      else ninfinite++;
-    }
-    printf("Thread %03d:     Total volume = %g\n",ThisTask,totalvol);
-    printf("Thread %03d:     Average volume = %g\n",ThisTask,totalvol/(float)nvp);
-    printf("Thread %03d:     Number of infinite volumes = %d\n",ThisTask,ninfinite);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
-  }
-
-  /* Output */
-  if (!exitcode) {
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Writing output to %s...\n",ThisTask,outfile);
-    out = fopen(outfile,"w");
-    if (out == NULL) {
-      printf("Thread %03d: Unable to open %s\n",ThisTask,outfile);
-      exitcode = 1001;
-    }
-  }
-   
-  /* Write if no exit code so far */
-  if (!exitcode) {
-    /* Info on particles in this file */
-    fwrite(&np,1, sizeof(int),out);
-    fwrite(&nvp,1, sizeof(int),out);
-    /* Tell us where the original particles were */
-    fwrite(orig,sizeof(int),nvp,out);
-    /* Volumes*/
-    fwrite(vols,sizeof(float),nvp,out);
-    /* Adjacencies */
-    for (i=0;i<nvp;i++) {
-      fwrite(&(adjs[i].nadj),1,sizeof(int),out);
-      if (adjs[i].nadj > 0)
-	fwrite(adjs[i].adj,adjs[i].nadj,sizeof(int),out);
-      /* else printf("0"); */
-    }
-    fclose(out);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
-  }
-
-  /* Free things */
-  if (adjs != NULL) {
-    for (i = 0; i < nvp; i++) {
-      if (adjs[i].nadj > 0) free(adjs[i].adj);
-    }
-    free(adjs);
-  }
-  if (parts != NULL) free(parts);
-  if (orig  != NULL) free(orig);
-  if (vols  != NULL) free(vols);
-
-  return(exitcode);
-}
-
-
-int make_block(int sector[3], float **p, int np, coordT **pblock, int **orig, int ThisTask) {
-  float width, width2, totwidth2;
-  float guard_space, guard_gap;
-  PARTADJ *adjs;
-  float center[3], rmin[3], rmax[3];
-  coordT rtemp[3];
-  coordT deladjs[3*MAXVERVER];
-  int nvp, nvpbuf, nvpall, nvpgrd;
-  int i,j,inbuff, inmain;
-  float predict;
-  int exitcode = 0;
-  int d;
-
-  /* Print info to start */
-  printf("Thread %03d: Block %02d.%02d.%02d\n",
-	 ThisTask,sector[0],sector[1],sector[2]);
-  printf("Thread %03d:     -------------------------\n",ThisTask);
-
-  /* Determine the size of the box */
-  width = 1./(float)All.NumDivide;
-  width2 = 0.5*width;
-  /* totwidth = width + 2.*All.Border; */
-  totwidth2 = width2 + All.Border;
-
-  /* Determine spacing of guard points */
-  DL center[d] = ((float)sector[d]+0.5)*width;
-  guard_space = width/(float)NGUARD;
-  if ((All.Border*All.Border - 2.*guard_space*guard_space) < 0.) {
-    printf("Thread %03d: border = %f, guard_space = %f.\n",
-	   ThisTask,All.Border,guard_space);
-    printf("Thread %03d: Not enough guard points for given border.\nIncrease guards to >= %f.\n",
-           ThisTask,sqrt(2.)*width/All.Border);
-    exitcode = 1021;
-  }
-  if (!exitcode) {
-    guard_gap = (All.Border / 2.)*(1. + sqrt(1 - 2.*guard_space*guard_space/(All.Border*All.Border)));
-    printf("Thread %03d:     guard_space = %f, border = %f, guard_gap = %f.\n",
-	   ThisTask,guard_space,All.Border,guard_gap);
-    printf("Thread %03d:     center = (%4.2f, %4.2f, %4.2f)\n",
-	   ThisTask,center[0],center[1],center[2]);
-    printf("\n");
-
-    /* Count guard particles */
-    nvpgrd = 0;
-    DL {
-      if (All.PeriodicBoundariesOn || (sector[d]!=0)) nvpgrd += (NGUARD+1)*(NGUARD+1);
-      if (All.PeriodicBoundariesOn || (sector[d]!=(All.NumDivide-1))) nvpgrd+= (NGUARD+1)*(NGUARD+1);
-    }
-    printf("Thread %03d:     %d guard points will be added.\n",ThisTask,nvpgrd);
-  
-    /* Count particles in this block */
-    nvp = 0;    /* number of particles in sector without buffer */
-    nvpbuf = 0; /* number of particles in sector with buffer */
+/*     /\* Count particles in this block *\/ */
+/*     nvp = 0;    /\* number of particles in sector without buffer *\/ */
+/*     nvpbuf = 0; /\* number of particles in sector with buffer *\/ */
     
-    DL { rmin[d] = BF; rmax[d] = -BF; }
-    for (i=0; i<np; i++) {
+/*     DL { rmin[d] = BF; rmax[d] = -BF; } */
+/*     for (i=0; i<np; i++) { */
       
-      inbuff = 1;
-      inmain = 1;
-      DL {
-	/* printf("%d %d\n",i,d); */
-	/* printf("%f\n",p[1][d]); */
-	rtemp[d] = (double)p[i][d] - (double)center[d];
-	if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d];
-	if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d];
-	/* Wrap periodic boundary */
-	if (All.PeriodicBoundariesOn) {
-	  if (rtemp[d] > 0.5) rtemp[d] --;
-	  if (rtemp[d] < -0.5) rtemp[d] ++;
-	}
-	inbuff = inbuff && (fabs(rtemp[d]) < totwidth2);
-	inmain = inmain && (fabs(rtemp[d]) <= width2);
-      }
-      if (inbuff) nvpbuf++;
-      if (inmain) nvp++;
-    }  
-    nvpbuf += nvpgrd;
-    printf("Thread %03d:     %d particles in this block\n",ThisTask,nvp);
-    printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n",
-	   ThisTask,rmin[0],rmin[1],rmin[2]);
-    printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n",
-	   ThisTask,rmax[0],rmax[1],rmax[2]);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
-  }
+/*       inbuff = 1; */
+/*       inmain = 1; */
+/*       DL { */
+/* 	/\* printf("%d %d\n",i,d); *\/ */
+/* 	/\* printf("%f\n",p[1][d]); *\/ */
+/* 	rtemp[d] = (double)p[i][d] - (double)center[d]; */
+/* 	if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d]; */
+/* 	if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d]; */
+/* 	/\* Wrap periodic boundary *\/ */
+/* 	if (All.PeriodicBoundariesOn) { */
+/* 	  if (rtemp[d] > 0.5) rtemp[d] --; */
+/* 	  if (rtemp[d] < -0.5) rtemp[d] ++; */
+/* 	} */
+/* 	inbuff = inbuff && (fabs(rtemp[d]) < totwidth2); */
+/* 	inmain = inmain && (fabs(rtemp[d]) <= width2); */
+/*       } */
+/*       if (inbuff) nvpbuf++; */
+/*       if (inmain) nvp++; */
+/*     }   */
+/*     nvpbuf += nvpgrd; */
+/*     printf("Thread %03d:     %d particles in this block\n",ThisTask,nvp); */
+/*     printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n", */
+/* 	   ThisTask,rmin[0],rmin[1],rmin[2]); */
+/*     printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n", */
+/* 	   ThisTask,rmax[0],rmax[1],rmax[2]); */
+/*     printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*     fflush(stdout); */
+/*   } */
 
-  /* Allocate particles in this sector */
-  if (!exitcode) {
-    (*pblock) = (coordT **)malloc(3*nvpbuf*sizeof(coordT));
-    if ((*pblock) == NULL) {
-      printf("Thread %03d: Unable to allocate pblock\n",ThisTask);
-      exitcode = 1100;
-    }
-  }
-  if (!exitcode) {
-    orig = (int *)malloc(nvpbuf*sizeof(int));
-    if (orig == NULL) {
-      printf("Thread %03d: Unable to allocate orig\n",ThisTask);
-      exitcode = 1200;
-    }
-  }
+/*   /\* Allocate particles in this sector *\/ */
+/*   if (!exitcode) { */
+/*     (*pblock) = (coordT **)malloc(3*nvpbuf*sizeof(coordT)); */
+/*     if ((*pblock) == NULL) { */
+/*       printf("Thread %03d: Unable to allocate pblock\n",ThisTask); */
+/*       exitcode = 1100; */
+/*     } */
+/*   } */
+/*   if (!exitcode) { */
+/*     orig = (int *)malloc(nvpbuf*sizeof(int)); */
+/*     if (orig == NULL) { */
+/*       printf("Thread %03d: Unable to allocate orig\n",ThisTask); */
+/*       exitcode = 1200; */
+/*     } */
+/*   } */
 
-  /* Particles in this sector */
-  if (!exitcode) {
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Selecting particles in this block...\n",ThisTask);
-    /* Select particles in this sector */
-    nvp = 0;    /* number of particles without buffer */
-    nvpall = 0; /* number of particles including buffer and guard */
-    DL { rmin[d] = BF; rmax[d] = -BF; }
-    for (i=0; i<np; i++) {
-      inmain = 1;
-      DL {
-	rtemp[d] = p[i][d] - center[d];
-	/* Wrap periodic boundary */
-	if (All.PeriodicBoundariesOn) {
-	  if (rtemp[d] > 0.5) rtemp[d] --;
-	  if (rtemp[d] < -0.5) rtemp[d] ++;
-	}
-	inmain = inmain && (fabs(rtemp[d]) <= width2);
-      }
-      if (inmain) {
-	(*pblock)[3*nvp] = rtemp[0];
-	(*pblock)[3*nvp+1] = rtemp[1];
-	(*pblock)[3*nvp+2] = rtemp[2];
-	orig[nvp] = i;
-	nvp++;
-	DL {
-	  if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d];
-	  if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d];
-	}
-      }
-      else {
-	/* printf("%d: rtemp=(%f,%f,%f) width2=%f\n",i,rtemp[0],rtemp[1],rtemp[2],width2); */
-      }
-    }
-    printf("Thread %03d:     %d particles in this block (without buffer)\n",ThisTask,nvp);
-    printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n",
-	   ThisTask,rmin[0],rmin[1],rmin[2]);
-    printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n",
-	   ThisTask,rmax[0],rmax[1],rmax[2]);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
+/*   /\* Particles in this sector *\/ */
+/*   if (!exitcode) { */
+/*     printf("Thread %03d:     -------------------------\n",ThisTask); */
+/*     printf("Thread %03d:     Selecting particles in this block...\n",ThisTask); */
+/*     /\* Select particles in this sector *\/ */
+/*     nvp = 0;    /\* number of particles without buffer *\/ */
+/*     nvpall = 0; /\* number of particles including buffer and guard *\/ */
+/*     DL { rmin[d] = BF; rmax[d] = -BF; } */
+/*     for (i=0; i<np; i++) { */
+/*       inmain = 1; */
+/*       DL { */
+/* 	rtemp[d] = p[i][d] - center[d]; */
+/* 	/\* Wrap periodic boundary *\/ */
+/* 	if (All.PeriodicBoundariesOn) { */
+/* 	  if (rtemp[d] > 0.5) rtemp[d] --; */
+/* 	  if (rtemp[d] < -0.5) rtemp[d] ++; */
+/* 	} */
+/* 	inmain = inmain && (fabs(rtemp[d]) <= width2); */
+/*       } */
+/*       if (inmain) { */
+/* 	(*pblock)[3*nvp] = rtemp[0]; */
+/* 	(*pblock)[3*nvp+1] = rtemp[1]; */
+/* 	(*pblock)[3*nvp+2] = rtemp[2]; */
+/* 	orig[nvp] = i; */
+/* 	nvp++; */
+/* 	DL { */
+/* 	  if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d]; */
+/* 	  if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d]; */
+/* 	} */
+/*       } */
+/*       else { */
+/* 	/\* printf("%d: rtemp=(%f,%f,%f) width2=%f\n",i,rtemp[0],rtemp[1],rtemp[2],width2); *\/ */
+/*       } */
+/*     } */
+/*     printf("Thread %03d:     %d particles in this block (without buffer)\n",ThisTask,nvp); */
+/*     printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n", */
+/* 	   ThisTask,rmin[0],rmin[1],rmin[2]); */
+/*     printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n", */
+/* 	   ThisTask,rmax[0],rmax[1],rmax[2]); */
+/*     printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*     fflush(stdout); */
   
-    /* Buffer particles */
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Creating buffer...\n",ThisTask);
-    nvpbuf = nvp;
-    for (i=0; i<np; i++) {
-      inbuff = 1;
-      DL {
-	rtemp[d] = p[i][d] - center[d];
-	/* Wrap periodic boundary */
-	if (All.PeriodicBoundariesOn) {
-	  if (rtemp[d] > 0.5) rtemp[d] --;
-	  if (rtemp[d] < -0.5) rtemp[d] ++;
-	}
-	inbuff = inbuff && (fabs(rtemp[d])<totwidth2);
-      }
-      if ((inbuff > 0) &&
-	  ((fabs(rtemp[0])>width2)||(fabs(rtemp[1])>width2)||(fabs(rtemp[2])>width2))) {
-	DL (*pblock)[3*nvpbuf+d] = rtemp[d];
-	orig[nvpbuf] = i;
-	nvpbuf++;
-	DL {
-	  if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d];
-	  if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d];
-	}
-      }
-    }
-    nvpall = nvpbuf;
-    printf("Thread %03d:     %d particles in this block (with buffer)\n",ThisTask,nvpbuf);
-    printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n",
-	   ThisTask,rmin[0],rmin[1],rmin[2]);
-    printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n",
-	   ThisTask,rmax[0],rmax[1],rmax[2]);
-    printf("\n");
+/*     /\* Buffer particles *\/ */
+/*     printf("Thread %03d:     -------------------------\n",ThisTask); */
+/*     printf("Thread %03d:     Creating buffer...\n",ThisTask); */
+/*     nvpbuf = nvp; */
+/*     for (i=0; i<np; i++) { */
+/*       inbuff = 1; */
+/*       DL { */
+/* 	rtemp[d] = p[i][d] - center[d]; */
+/* 	/\* Wrap periodic boundary *\/ */
+/* 	if (All.PeriodicBoundariesOn) { */
+/* 	  if (rtemp[d] > 0.5) rtemp[d] --; */
+/* 	  if (rtemp[d] < -0.5) rtemp[d] ++; */
+/* 	} */
+/* 	inbuff = inbuff && (fabs(rtemp[d])<totwidth2); */
+/*       } */
+/*       if ((inbuff > 0) && */
+/* 	  ((fabs(rtemp[0])>width2)||(fabs(rtemp[1])>width2)||(fabs(rtemp[2])>width2))) { */
+/* 	DL (*pblock)[3*nvpbuf+d] = rtemp[d]; */
+/* 	orig[nvpbuf] = i; */
+/* 	nvpbuf++; */
+/* 	DL { */
+/* 	  if (rtemp[d] < rmin[d]) rmin[d] = rtemp[d]; */
+/* 	  if (rtemp[d] > rmax[d]) rmax[d] = rtemp[d]; */
+/* 	} */
+/*       } */
+/*     } */
+/*     nvpall = nvpbuf; */
+/*     printf("Thread %03d:     %d particles in this block (with buffer)\n",ThisTask,nvpbuf); */
+/*     printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n", */
+/* 	   ThisTask,rmin[0],rmin[1],rmin[2]); */
+/*     printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n", */
+/* 	   ThisTask,rmax[0],rmax[1],rmax[2]); */
+/*     printf("\n"); */
 
-    /* Predict if the box were uniform density */
-    predict = pow(width+2.*All.Border,3)*(float)np;
-    printf("Thread %03d:     There should be ~ %f points if the box were uniform; there are %d\n",
-	   ThisTask,predict,nvpbuf);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
+/*     /\* Predict if the box were uniform density *\/ */
+/*     predict = pow(width+2.*All.Border,3)*(float)np; */
+/*     printf("Thread %03d:     There should be ~ %f points if the box were uniform; there are %d\n", */
+/* 	   ThisTask,predict,nvpbuf); */
+/*     printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*     fflush(stdout); */
 
-    /* Guard points */
-    if (nvpgrd > 0) {
-      printf("Thread %03d:     -------------------------\n",ThisTask);
-      printf("Thread %03d:     Adding %d guard points...\n",ThisTask,nvpgrd);
-      /* Z faces */
-      for (i=0; i<NGUARD+1; i++) {
-	for (j=0; j<NGUARD+1; j++) {
-	  /* Bottom */
-	  if (All.PeriodicBoundariesOn || (sector[2]!=0)) {
-	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+1] = -width2 + (float)j * guard_space;
-	    (*pblock)[3*nvpall+2] = -width2 - guard_gap;
-	    nvpall++;
-	  }
-	  /* Top */
-	  if (All.PeriodicBoundariesOn || (sector[2]!=(All.NumDivide-1))) {
-	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+1] = -width2 + (float)j * guard_space;
-	    (*pblock)[3*nvpall+2] = width2 + guard_gap;
-	    nvpall++;
-	  }
-	}
-      }
-      /* Y faces */
-      for (i=0; i<NGUARD+1; i++) { /* Don't want to overdo the corners*/
-	for (j=0; j<NGUARD+1; j++) {
-	  /* Left */
-	  if (All.PeriodicBoundariesOn || (sector[1]!=0)) {
-	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+1] = -width2 - guard_gap;
-	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space;
-	    nvpall++;
-	  }
-	  /* Right */
-	  if (All.PeriodicBoundariesOn || (sector[1]!=(All.NumDivide-1))) {
-	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+1] = width2 + guard_gap;
-	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space;
-	    nvpall++;
-	  }
-	}
-      }
-      /* X faces */
-      for (i=0; i<NGUARD+1; i++) {
-	for (j=0; j<NGUARD+1; j++) {
-	  /* Front */
-	  if (All.PeriodicBoundariesOn || (sector[0]!=0)) {
-	    (*pblock)[3*nvpall]   = -width2 - guard_gap;
-	    (*pblock)[3*nvpall+1] = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space;
-	    nvpall++;
-	  }
-	  /* Back */
-	  if (All.PeriodicBoundariesOn || (sector[0]!=(All.NumDivide-1))) {
-	    (*pblock)[3*nvpall]   = width2 + guard_gap;
-	    (*pblock)[3*nvpall+1] = -width2 + (float)i * guard_space;
-	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space;
-	    nvpall++;
-	  }
-	}
-      }
-      DL { rmin[d] = BF; rmax[d] = -BF; }
-      for (i=nvpbuf;i<nvpall;i++) {
-	DL {
-	  if ((*pblock)[3*i+d] < rmin[d]) rmin[d] = (*pblock)[3*i+d];
-	  if ((*pblock)[3*i+d] > rmax[d]) rmax[d] = (*pblock)[3*i+d];
-	}
-      }
-      printf("Thread %03d:     %d particles in this block (with guard points)\n",
-	     ThisTask,nvpall);
-      printf("Thread %03d:     There should be %d.\n",
-	     ThisTask,nvpbuf + nvpgrd);
-      /* if (All.PeriodicBoundariesOn) { */
-      /* } */
-      printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n",
-	     ThisTask,rmin[0],rmin[1],rmin[2]);
-      printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n",
-	     ThisTask,rmax[0],rmax[1],rmax[2]);
-      printf("Thread %03d:     -------------------------\n\n",ThisTask);
-      fflush(stdout);
-    }
-  }
+/*     /\* Guard points *\/ */
+/*     if (nvpgrd > 0) { */
+/*       printf("Thread %03d:     -------------------------\n",ThisTask); */
+/*       printf("Thread %03d:     Adding %d guard points...\n",ThisTask,nvpgrd); */
+/*       /\* Z faces *\/ */
+/*       for (i=0; i<NGUARD+1; i++) { */
+/* 	for (j=0; j<NGUARD+1; j++) { */
+/* 	  /\* Bottom *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[2]!=0)) { */
+/* 	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+1] = -width2 + (float)j * guard_space; */
+/* 	    (*pblock)[3*nvpall+2] = -width2 - guard_gap; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	  /\* Top *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[2]!=(All.NumDivide-1))) { */
+/* 	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+1] = -width2 + (float)j * guard_space; */
+/* 	    (*pblock)[3*nvpall+2] = width2 + guard_gap; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	} */
+/*       } */
+/*       /\* Y faces *\/ */
+/*       for (i=0; i<NGUARD+1; i++) { /\* Don't want to overdo the corners*\/ */
+/* 	for (j=0; j<NGUARD+1; j++) { */
+/* 	  /\* Left *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[1]!=0)) { */
+/* 	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+1] = -width2 - guard_gap; */
+/* 	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	  /\* Right *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[1]!=(All.NumDivide-1))) { */
+/* 	    (*pblock)[3*nvpall]   = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+1] = width2 + guard_gap; */
+/* 	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	} */
+/*       } */
+/*       /\* X faces *\/ */
+/*       for (i=0; i<NGUARD+1; i++) { */
+/* 	for (j=0; j<NGUARD+1; j++) { */
+/* 	  /\* Front *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[0]!=0)) { */
+/* 	    (*pblock)[3*nvpall]   = -width2 - guard_gap; */
+/* 	    (*pblock)[3*nvpall+1] = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	  /\* Back *\/ */
+/* 	  if (All.PeriodicBoundariesOn || (sector[0]!=(All.NumDivide-1))) { */
+/* 	    (*pblock)[3*nvpall]   = width2 + guard_gap; */
+/* 	    (*pblock)[3*nvpall+1] = -width2 + (float)i * guard_space; */
+/* 	    (*pblock)[3*nvpall+2] = -width2 + (float)j * guard_space; */
+/* 	    nvpall++; */
+/* 	  } */
+/* 	} */
+/*       } */
+/*       DL { rmin[d] = BF; rmax[d] = -BF; } */
+/*       for (i=nvpbuf;i<nvpall;i++) { */
+/* 	DL { */
+/* 	  if ((*pblock)[3*i+d] < rmin[d]) rmin[d] = (*pblock)[3*i+d]; */
+/* 	  if ((*pblock)[3*i+d] > rmax[d]) rmax[d] = (*pblock)[3*i+d]; */
+/* 	} */
+/*       } */
+/*       printf("Thread %03d:     %d particles in this block (with guard points)\n", */
+/* 	     ThisTask,nvpall); */
+/*       printf("Thread %03d:     There should be %d.\n", */
+/* 	     ThisTask,nvpbuf + nvpgrd); */
+/*       /\* if (All.PeriodicBoundariesOn) { *\/ */
+/*       /\* } *\/ */
+/*       printf("Thread %03d:     xmin=%+4.2f ymin=%+4.2f zmin=%+4.2f\n", */
+/* 	     ThisTask,rmin[0],rmin[1],rmin[2]); */
+/*       printf("Thread %03d:     xmax=%+4.2f ymax=%+4.2f zmax=%+4.2f\n", */
+/* 	     ThisTask,rmax[0],rmax[1],rmax[2]); */
+/*       printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*       fflush(stdout); */
+/*     } */
+/*   } */
 
-  endrun(0, 0);
-}
+/*   endrun(0, 0); */
+/* } */
 
-int vozblock(int sector[3], char* outfile, float **p, int np, int ThisTask) {
-  float width, width2, totwidth2; /*totwidth2; */
-  float guard_space, guard_gap;
-  PARTADJ *adjs;
-  float center[3], rmin[3], rmax[3];
-  coordT rtemp[3], *parts = 0;
-  coordT deladjs[3*MAXVERVER];
-  float *vols = 0;
-  int nvp, nvpbuf, nvpall, nvpgrd;
-  int i,j,inbuff, inmain;
-  int *orig = 0;
-  FILE *out;
-  double totalvol;
-  float predict;
-  int exitcode = 0;
-  int ninfinite;
-  int d;
-  int NTask = 1;
+/* int vozblock(int sector[3], char* outfile, float **p, int np, int ThisTask) { */
+/*   float width, width2, totwidth2; /\*totwidth2; *\/ */
+/*   float guard_space, guard_gap; */
+/*   PARTADJ *adjs; */
+/*   float center[3], rmin[3], rmax[3]; */
+/*   coordT rtemp[3], *parts = 0; */
+/*   coordT deladjs[3*MAXVERVER]; */
+/*   float *vols = 0; */
+/*   int nvp, nvpbuf, nvpall, nvpgrd; */
+/*   int i,j,inbuff, inmain; */
+/*   int *orig = 0; */
+/*   FILE *out; */
+/*   double totalvol; */
+/*   float predict; */
+/*   int exitcode = 0; */
+/*   int ninfinite; */
+/*   int d; */
+/*   int NTask = 1; */
 
-  if (vols != NULL) {
-    printf("Pointer is not null on initialization\n");
-  }
+/*   if (vols != NULL) { */
+/*     printf("Pointer is not null on initialization\n"); */
+/*   } */
 
-  /* Select particles in this block */
-  exitcode = make_block(sector, p, np, &parts, &orig, ThisTask);
+/*   /\* Select particles in this block *\/ */
+/*   exitcode = make_block(sector, p, np, &parts, &orig, ThisTask); */
 
-  /* Allocate adjacencies */
-  if (!exitcode) {
-    adjs = (PARTADJ *)malloc(np*sizeof(PARTADJ));
-    if (adjs == NULL) {
-      printf("Thread %03d: Unable to allocate adjs\n",ThisTask);
-      exitcode = 1300;
-    }
-  }
+/*   /\* Allocate adjacencies *\/ */
+/*   if (!exitcode) { */
+/*     adjs = (PARTADJ *)malloc(np*sizeof(PARTADJ)); */
+/*     if (adjs == NULL) { */
+/*       printf("Thread %03d: Unable to allocate adjs\n",ThisTask); */
+/*       exitcode = 1300; */
+/*     } */
+/*   } */
 
-  /* Compute adjacencies */
-  if (!exitcode) {
-    printf("\n");
-    printf("Thread %03d:     File read.  Tessellating ...\n",ThisTask);
-    if (NTask == 1) fflush(stdout);
-    exitcode = delaunadj(parts, nvp, nvpbuf, nvpall, All.PeriodicBoundariesOn, &adjs, ThisTask);
-    printf("Thread %03d:     Done Tessellating. exitcode=%d\n",ThisTask,exitcode);
-    fflush(stdout);
-  }
+/*   /\* Compute adjacencies *\/ */
+/*   if (!exitcode) { */
+/*     printf("\n"); */
+/*     printf("Thread %03d:     File read.  Tessellating ...\n",ThisTask); */
+/*     if (NTask == 1) fflush(stdout); */
+/*     exitcode = delaunadj(parts, nvp, nvpbuf, nvpall, All.PeriodicBoundariesOn, &adjs, ThisTask); */
+/*     printf("Thread %03d:     Done Tessellating. exitcode=%d\n",ThisTask,exitcode); */
+/*     fflush(stdout); */
+/*   } */
 
-  /* Allocate volumes */
-  if (!exitcode) {
-    vols = (float *)malloc(nvp*sizeof(float));
-    if (vols == NULL) {
-      printf("Thread %03d: Unable to allocate vols\n",ThisTask);
-      exitcode = 1400;
-    }
-  }
+/*   /\* Allocate volumes *\/ */
+/*   if (!exitcode) { */
+/*     vols = (float *)malloc(nvp*sizeof(float)); */
+/*     if (vols == NULL) { */
+/*       printf("Thread %03d: Unable to allocate vols\n",ThisTask); */
+/*       exitcode = 1400; */
+/*     } */
+/*   } */
 
-  /* Calculate volumes*/
-  if (!exitcode) {
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Finding volumes ...\n",ThisTask); 
-    if (NTask == 1) fflush(stdout);
-    for (i=0; i<nvp; i++) { /* Just the original particles */
-      if (exitcode) break;
-      /* Particles that have adjacencies */
-      if (adjs[i].nadj > 0) {
-	for (j = 0; j < adjs[i].nadj; j++) {
-	  for (d = 0; d < 3; d++) {
-	    /* Distance between particle and adjacent particle */
-	    deladjs[3*j + d] = parts[3*adjs[i].adj[j]+d] - parts[3*i+d];
-	    /* Wrap periodic */
-	    if (All.PeriodicBoundariesOn) {
-	      if (deladjs[3*j+d] < -0.5) deladjs[3*j+d]++;
-	      if (deladjs[3*j+d] >  0.5) deladjs[3*j+d]--;
-	    }
-	  }
-	}
-	exitcode = adj2vol(deladjs, adjs[i].nadj, &(vols[i]), ThisTask);
-	if (exitcode) break;
-	vols[i] *= (float)np; /* Why? */
-      }
-      /* Particles bordering upper delaunay facet */
-      else if (adjs[i].nadj == -1) {
-	vols[i] = (float)(-1); /* INFINITY; */
-      }
-      /* Particles that have a weird number of adjacencies */
-      else {
-	printf("Thread %03d: Particle %d has nadj=%d\n",ThisTask,i,adjs[i].nadj);
-	exitcode = 666;
-      }
-    }
-  }
+/*   /\* Calculate volumes*\/ */
+/*   if (!exitcode) { */
+/*     printf("Thread %03d:     -------------------------\n",ThisTask); */
+/*     printf("Thread %03d:     Finding volumes ...\n",ThisTask);  */
+/*     if (NTask == 1) fflush(stdout); */
+/*     for (i=0; i<nvp; i++) { /\* Just the original particles *\/ */
+/*       if (exitcode) break; */
+/*       /\* Particles that have adjacencies *\/ */
+/*       if (adjs[i].nadj > 0) { */
+/* 	for (j = 0; j < adjs[i].nadj; j++) { */
+/* 	  for (d = 0; d < 3; d++) { */
+/* 	    /\* Distance between particle and adjacent particle *\/ */
+/* 	    deladjs[3*j + d] = parts[3*adjs[i].adj[j]+d] - parts[3*i+d]; */
+/* 	    /\* Wrap periodic *\/ */
+/* 	    if (All.PeriodicBoundariesOn) { */
+/* 	      if (deladjs[3*j+d] < -0.5) deladjs[3*j+d]++; */
+/* 	      if (deladjs[3*j+d] >  0.5) deladjs[3*j+d]--; */
+/* 	    } */
+/* 	  } */
+/* 	} */
+/* 	exitcode = adj2vol(deladjs, adjs[i].nadj, &(vols[i]), ThisTask); */
+/* 	if (exitcode) break; */
+/* 	vols[i] *= (float)np; /\* Why? *\/ */
+/*       } */
+/*       /\* Particles bordering upper delaunay facet *\/ */
+/*       else if (adjs[i].nadj == -1) { */
+/* 	vols[i] = (float)(-1); /\* INFINITY; *\/ */
+/*       } */
+/*       /\* Particles that have a weird number of adjacencies *\/ */
+/*       else { */
+/* 	printf("Thread %03d: Particle %d has nadj=%d\n",ThisTask,i,adjs[i].nadj); */
+/* 	exitcode = 666; */
+/*       } */
+/*     } */
+/*   } */
 
-  /* Continue if no exit code */
-  if (!exitcode) {
-    /* Get the adjacencies back to their original values */
-    for (i=0; i<nvp; i++) {
-      for (j = 0; j < adjs[i].nadj; j++) {
-	adjs[i].adj[j] = orig[adjs[i].adj[j]];
-      }
-    }
+/*   /\* Continue if no exit code *\/ */
+/*   if (!exitcode) { */
+/*     /\* Get the adjacencies back to their original values *\/ */
+/*     for (i=0; i<nvp; i++) { */
+/*       for (j = 0; j < adjs[i].nadj; j++) { */
+/* 	adjs[i].adj[j] = orig[adjs[i].adj[j]]; */
+/*       } */
+/*     } */
   
-    /* Calculate total and average volumne */
-    totalvol = 0.;
-    ninfinite = 0;
-    for (i=0;i<nvp; i++) {
-      if (isfinite(vols[i]) && (vols[i]>=0)) {
-	totalvol += (double)vols[i];
-      }
-      else ninfinite++;
-    }
-    printf("Thread %03d:     Total volume = %g\n",ThisTask,totalvol);
-    printf("Thread %03d:     Average volume = %g\n",ThisTask,totalvol/(float)nvp);
-    printf("Thread %03d:     Number of infinite volumes = %d\n",ThisTask,ninfinite);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
-  }
+/*     /\* Calculate total and average volumne *\/ */
+/*     totalvol = 0.; */
+/*     ninfinite = 0; */
+/*     for (i=0;i<nvp; i++) { */
+/*       if (isfinite(vols[i]) && (vols[i]>=0)) { */
+/* 	totalvol += (double)vols[i]; */
+/*       } */
+/*       else ninfinite++; */
+/*     } */
+/*     printf("Thread %03d:     Total volume = %g\n",ThisTask,totalvol); */
+/*     printf("Thread %03d:     Average volume = %g\n",ThisTask,totalvol/(float)nvp); */
+/*     printf("Thread %03d:     Number of infinite volumes = %d\n",ThisTask,ninfinite); */
+/*     printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*     fflush(stdout); */
+/*   } */
 
-  /* Output */
-  if (!exitcode) {
-    printf("Thread %03d:     -------------------------\n",ThisTask);
-    printf("Thread %03d:     Writing output to %s...\n",ThisTask,outfile);
-    out = fopen(outfile,"w");
-    if (out == NULL) {
-      printf("Thread %03d: Unable to open %s\n",ThisTask,outfile);
-      exitcode = 1001;
-    }
-  }
+/*   /\* Output *\/ */
+/*   if (!exitcode) { */
+/*     printf("Thread %03d:     -------------------------\n",ThisTask); */
+/*     printf("Thread %03d:     Writing output to %s...\n",ThisTask,outfile); */
+/*     out = fopen(outfile,"w"); */
+/*     if (out == NULL) { */
+/*       printf("Thread %03d: Unable to open %s\n",ThisTask,outfile); */
+/*       exitcode = 1001; */
+/*     } */
+/*   } */
    
-  /* Write if no exit code so far */
-  if (!exitcode) {
-    /* Info on particles in this file */
-    fwrite(&np,1, sizeof(int),out);
-    fwrite(&nvp,1, sizeof(int),out);
-    /* Tell us where the original particles were */
-    fwrite(orig,sizeof(int),nvp,out);
-    /* Volumes*/
-    fwrite(vols,sizeof(float),nvp,out);
-    /* Adjacencies */
-    for (i=0;i<nvp;i++) {
-      fwrite(&(adjs[i].nadj),1,sizeof(int),out);
-      if (adjs[i].nadj > 0)
-	fwrite(adjs[i].adj,adjs[i].nadj,sizeof(int),out);
-      /* else printf("0"); */
-    }
-    fclose(out);
-    printf("Thread %03d:     -------------------------\n\n",ThisTask);
-    fflush(stdout);
-  }
+/*   /\* Write if no exit code so far *\/ */
+/*   if (!exitcode) { */
+/*     /\* Info on particles in this file *\/ */
+/*     fwrite(&np,1, sizeof(int),out); */
+/*     fwrite(&nvp,1, sizeof(int),out); */
+/*     /\* Tell us where the original particles were *\/ */
+/*     fwrite(orig,sizeof(int),nvp,out); */
+/*     /\* Volumes*\/ */
+/*     fwrite(vols,sizeof(float),nvp,out); */
+/*     /\* Adjacencies *\/ */
+/*     for (i=0;i<nvp;i++) { */
+/*       fwrite(&(adjs[i].nadj),1,sizeof(int),out); */
+/*       if (adjs[i].nadj > 0) */
+/* 	fwrite(adjs[i].adj,adjs[i].nadj,sizeof(int),out); */
+/*       /\* else printf("0"); *\/ */
+/*     } */
+/*     fclose(out); */
+/*     printf("Thread %03d:     -------------------------\n\n",ThisTask); */
+/*     fflush(stdout); */
+/*   } */
 
-  /* Free things */
-  if (adjs != NULL) {
-    for (i = 0; i < nvp; i++) {
-      if (adjs[i].nadj > 0) free(adjs[i].adj);
-    }
-    free(adjs);
-  }
-  if (parts != NULL) free(parts);
-  if (orig  != NULL) free(orig);
-  if (vols  != NULL) free(vols);
+/*   /\* Free things *\/ */
+/*   if (adjs != NULL) { */
+/*     for (i = 0; i < nvp; i++) { */
+/*       if (adjs[i].nadj > 0) free(adjs[i].adj); */
+/*     } */
+/*     free(adjs); */
+/*   } */
+/*   if (parts != NULL) free(parts); */
+/*   if (orig  != NULL) free(orig); */
+/*   if (vols  != NULL) free(vols); */
 
-  return(exitcode);
-}
+/*   return(exitcode); */
+/* } */
 
 int voz1b1(int sector[3], char* outfile, float **p, int np, int ThisTask) {
   float width, width2, totwidth2; /*totwidth2; */
