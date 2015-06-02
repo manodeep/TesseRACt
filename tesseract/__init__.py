@@ -39,7 +39,7 @@ config_parser.read("config.ini")
 # General options
 config = {}
 if config_parser.has_option('general','outputdir'):
-    config['outputdir'] = config_parser.get('general','outputdir').strip()
+    config['outputdir'] = os.expanduser(config_parser.get('general','outputdir').strip())
 else:
     config['outputdir'] = os.getcwd()
 
