@@ -1,4 +1,8 @@
 from distutils.core import setup
+
+with open('README.md') as file:
+    long_description = file.read()
+
 setup(
     name = 'tesseract',
     packages = ['tesseract'],
@@ -16,13 +20,5 @@ setup(
                    "Intended Audience :: Science/Research","Natural Language :: English",
                    "Topic :: Scientific/Engineering","Topic :: Scientific/Engineering :: Astronomy",
                    "Development Status :: 3 - Alpha"], #"Programming Language :: C" 
-    long_description = """\
-Tesselation based Recovery of Amorphous halo Concentrations
------------------------------------------------------------
-
-Computes concentrations of simulated dark matter halos non-parametrically 
-particle associated volumes.
-
-
-"""
+    long_description = long_description
 )
