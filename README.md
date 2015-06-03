@@ -56,8 +56,8 @@ The TesseRACT user config file `.tessrc` is created in your home directory when 
     * `nfw-methods` - List of methods for calculating NFW parameters that are used for each test by default. (voronoi, fit, rhalf, and vpeak by default)
 
 
-* `[qhull]` Options for controlling `qhull`.
-    * `install-dir` - The directory under which `qhull` should be installed. This is initialized the first time that the TesseRACt package is imported. If this does not point to a valid `qhull` installation, TesseRACt will be unable to perform the Voronoi tessellation.
+* `[qhull]` Options for controlling qhull.
+    * `install-dir` - The directory under which qhull should be installed. This is initialized the first time that the TesseRACt package is imported. If this does not point to a valid qhull installation, TesseRACt will be unable to perform the Voronoi tessellation.
 
 
 For additional details on configuration file syntax, please see the documentation for the [ConfigParser](https://docs.python.org/2/library/configparser.html) package.
