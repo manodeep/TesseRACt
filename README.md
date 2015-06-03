@@ -82,8 +82,5 @@ Things that are being worked on:
 
 * liscense
 * create example parameter file
-* customize Makefile on install
-* ask user if qhull should be downloaded & update parameter file
 * create straight forward tests
-* create config file containing output dir
 * add outputfile parameter to vorovol
