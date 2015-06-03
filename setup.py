@@ -1,9 +1,13 @@
 from distutils.core import setup
+
+with open('README.md') as file:
+    long_description = file.read()
+
 setup(
     name = 'tesseract',
     packages = ['tesseract'],
     package_dir = {'tesseract': 'tesseract'},
-    package_data = {'tesseract': ['README.txt','default_config.ini','halos/*.snap',
+    package_data = {'tesseract': ['README.md','default_config.ini','halos/*.snap',
 				  'qhull2002.1.tar',
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
     version = '0.1.0',
@@ -16,13 +20,5 @@ setup(
                    "Intended Audience :: Science/Research","Natural Language :: English",
                    "Topic :: Scientific/Engineering","Topic :: Scientific/Engineering :: Astronomy",
                    "Development Status :: 3 - Alpha"], #"Programming Language :: C" 
-    long_description = """\
-Tesselation based Recovery of Amorphous halo Concentrations
------------------------------------------------------------
-
-Computes concentrations of simulated dark matter halos non-parametrically 
-particle associated volumes.
-
-
-"""
+    long_description = long_description
 )
