@@ -1,4 +1,4 @@
-include README
+include README.md
 include tesseract/halos/*
 include tesseract/default_config.ini
 include tesseract/qhull2002.1.tar
