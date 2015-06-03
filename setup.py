@@ -3,7 +3,7 @@ setup(
     name = 'tesseract',
     packages = ['tesseract'],
     package_dir = {'tesseract': 'tesseract'},
-    package_data = {'tesseract': ['README.txt','default_config.ini','halos/*.snap',
+    package_data = {'tesseract': ['README.md','default_config.ini','halos/*.snap',
 				  'qhull2002.1.tar',
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
     version = '0.1.0',
