@@ -80,7 +80,7 @@ TODO
 ====
 Things that are being worked on:
 
-* liscense
 * create example parameter file
 * create straight forward tests
+* Add runner test script for install
 * add outputfile parameter to vorovol
