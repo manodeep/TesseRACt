@@ -29,19 +29,22 @@ The easiest way to install TesseRACt from the source code is to clone the reposi
 
 1. **Install mercurial if you don't have it.** This is easy to do via `pip install hg` (or `pip install hg --user` if you do not have admin privileges).
 2. **Clone the TesseRACt repository.** Move to the directory where you want to install TesseRACt. Then issue the command `hg clone [https link]` where `[https link]` should be the bitbucket link. 
-3. **Install qhull if you don't have it.** Download qhull and install it. Edit the vorovol/Makefile to use the path of the qhull source directory.
-4. **Run the setup script.** Move into the tesseract directory and run the setup script via `python setup.py install` (or `python setup.py install --user` if you do not have admin privileges).
-5. **Test the installation.** Open python and import TesseRACt via `import tesseract`. Then run help(tesseract).
-
---------------------------------------------------------------------------------
-
-EXAMPLES
-========
+3. **Run the setup script.** Move into the tesseract directory and run the setup script via `python setup.py install` (or `python setup.py install --user` if you do not have admin privileges).
+5. **Test the installation.** Open python and import TesseRACt via `import tesseract`. Then run help(tesseract). The first time you import TesseRACt, a few things will happen. First, a user config file will be created at `~/.tessrc` that is used to control different aspects of TesseRACt (See section below for details).  Second, you will be prompted to enter a directory in which qhull will be installed. This directory will be added to the tesseract user configuration file, which can be changed at any time if you move qhull.
 
 --------------------------------------------------------------------------------
 
 THE CONFIG FILE
 ===============
+
+The TesseRACT user config file `.tessrc` is created in your home directory when TesseRACt is first imported. It is initialized from the default configuration script `default_config.ini` and can be edited at any time to change different TesseRACt aspects. However, the default configuration file should NOT be edited directly in case new functionality is added. Currently supported configuration file options include:
+
+
+
+--------------------------------------------------------------------------------
+
+EXAMPLES
+========
 
 --------------------------------------------------------------------------------
 
