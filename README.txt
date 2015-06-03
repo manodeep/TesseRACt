@@ -39,8 +39,7 @@ THE CONFIG FILE
 
 The TesseRACT user config file `.tessrc` is created in your home directory when TesseRACt is first imported. It is initialized from the default configuration script `default_config.ini` and can be edited at any time to change different TesseRACt aspects. However, the default configuration file should NOT be edited directly in case new functionality is added. Any options not provided in `.tessrc` are initialized to the values in `default_config.ini`. Currently supported configuration file options include:
 
-* `[general]`
-Options for controlling TesseRACT's general performance.
+* `[general]` Options for controlling TesseRACT's general performance.
    * `outputdir` - Path to directory where TesseRACT output should be saved. If not provided, output will be saved in the current working directory.
 
 ### `[nfw-options]`
