@@ -1,0 +1,8 @@
+include README
+include tesseract/halos/*
+include tesseract/default_config.ini
+include tesseract/qhull2002.1.tar
+include tesseract/vorovol/Makfile
+include tesseract/vorovol/*.c
+include tesseract/vorovol/*.h
+
