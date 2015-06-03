@@ -10,7 +10,7 @@ setup(
     package_data = {'tesseract': ['README.md','default_config.ini','halos/*.snap',
 				  'qhull2002.1.tar',
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
-    version = '0.1.0',
+    version = '0.1.1',
     author = 'Meagan Lang',
     author_email = 'meagan.lang@vanderbilt.edu',
     url = 'http://vpac00.phy.vanderbilt.edu/~langmm/index.html',
