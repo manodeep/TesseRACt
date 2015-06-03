@@ -889,6 +889,8 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
         except:
             raise
         #   return -999,None
+    else:
+        return -999,None
     # Return
     return code,out
         

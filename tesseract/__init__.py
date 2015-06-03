@@ -27,19 +27,25 @@ examples
 # Basic dependencies
 import ConfigParser
 import os
+import shutil
 
-# Config file
+# Initialize config file
+_config_file_def = os.path.join(os.path.dirname(__file__),"default_config.ini")
+_config_file_usr = os.path.expanduser("~/.tessrc")
+if not os.path.isfile(_config_file_usr):
+    print 'Creating user config file: {}'.format(_config_file_usr)
+    shutil.copyfile(_config_file_def,_config_file_usr)
+
+# Read config file
 config_parser = ConfigParser.ConfigParser()
 config_parser.optionxform = str
-config_parser.read(os.path.join(os.path.dirname(__file__),"default_config.ini"))
-config_parser.read(os.path.join(os.path.dirname(__file__),"config.ini"))
-config_parser.read(os.path.expanduser("~/.tessrc"))
-config_parser.read("config.ini")
+config_parser.read(_config_file_def)
+config_parser.read(_config_file_usr) # Overrides defaults with user options
 
 # General options
 config = {}
 if config_parser.has_option('general','outputdir'):
-    config['outputdir'] = os.expanduser(config_parser.get('general','outputdir').strip())
+    config['outputdir'] = os.path.expanduser(config_parser.get('general','outputdir').strip())
 else:
     config['outputdir'] = os.getcwd()
 
