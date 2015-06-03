@@ -933,7 +933,7 @@ int read_parameter_file(char *fname) {
                 }
               else
                 {
-                  fprintf(stdout, "Error in file %s:   Tag '%s' not allowed or multiple defined.\n",
+                  fprintf(stdout, "Error in file %s:\n   Tag '%s' not allowed or multiple defined.\n",
                           fname, buf1);
                   errorFlag = 1;
                 }

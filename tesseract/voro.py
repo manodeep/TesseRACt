@@ -1,15 +1,50 @@
 import os,pickle
 import numpy as np
 from . import util
-
+from . import config,config_parser,_config_file_usr
 # TODO: 
 # - fix units in snapshots and volume files so that Mscl and Rscl are not
 #   needed in get_nfw
 # - suppress vorovol output from qhull
 
 _installdir = os.path.dirname(os.path.realpath(__file__))
-_execfile = os.path.join(_installdir,'vorovol','vorovol')
+_installdir_vorvol = os.path.join(_installdir,'vorovol')
 
+# Vorovol files
+_makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
+_execfile_vorovol = os.path.join(_installdir_vorvol,'vorovol')
+
+# Qhull installation
+if config_parser.has_option('qhull','install-dir'):
+    _qhulldir = config_parser.get('qhull','install-dir').strip()
+else:
+    # Ask user for qhull directory
+    qstr = 'Please enter the path to an existing directory where qhull should be installed: '
+    _qhulldir = os.path.expanduser(raw_input(qstr).strip())
+    while not os.path.isdir(_qhulldir):
+        print 'That is not a valid directory.'
+        _qhulldir = os.path.expanduser(raw_input(qstr).strip())
+    # Add option to config file
+    if not config_parser.has_section('qhull'):
+        config_parser.add_section('qhull')
+    config_parser.set('qhull','install-dir',_qhulldir)
+    with open(_config_file_usr,'w') as fp:
+        config_parser.write(fp)
+    # Unpack the tar file
+    _qhulltar = os.path.join(_installdir,'qhull2002.1.tar')
+    if os.path.isdir(os.path.join(_qhulldir,'qhull2002.1')):
+        print 'There is already a qhull installation there. No new installation necessary.'
+    else:
+        print 'Unpacking Qhull in {}...'.format(_qhulldir)
+        os.system('tar -C {} -xf {}'.format(_qhulldir,_qhulltar))
+
+# Qhull files
+_installdir_qhull = os.path.join(_qhulldir,'qhull2002.1','src')
+_makefile_qhull = os.path.join(_installdir_qhull,'Makefile')
+_execfile_qhull = os.path.join(_installdir_qhull,'qhull_a.h')
+os.environ['QHULLSRCDIR'] = _installdir_qhull
+
+# Parameter file options
 _paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
               'Border','BoxSize','PositionFile','PositionFileFormat','OutputDir',
               'OutputAdjacenciesOn','MaxNumSnapshot',
@@ -40,7 +75,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
                    (default = True)
     """
     # Set defaults and allow for parfile or parameters
-    if exefile is None: exefile = _execfile
+    if exefile is None: exefile = _execfile_vorovol
     if isinstance(parfile0,dict):
         param = parfile0
         parfile = param.get('parfile','voro.param')
@@ -61,7 +96,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
         return 0
     # Compile executable if it does not exists
     if not os.path.isfile(exefile) or recompile:
-        make(makefile=os.path.join(os.path.dirname(exefile),'Makefile'))
+        make_vorovol(os.path.join(os.path.dirname(exefile),'Makefile'))
     # Create output directories
     outputdir = param['OutputDir']
     if not os.path.isdir(outputdir):
@@ -83,32 +118,45 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     # Return code
     return code
 
-def make(makefile=None):
+
+def make(makefile,exefile=None):
     """
-    Compiles vorovol using the specified Makefile
-        makefile: path to vorovol Makefile
+    Compiles an application using a Makefile.
+        makefile: path to Makefile
     """
     # Set default makefile & check that it exists
-    if makefile is None:
-        makefile = os.path.join(os.path.dirname(_execfile),'Makefile')
-    else:
-        makefile = os.path.expanduser(makefile)
+    makefile = os.path.expanduser(makefile)
     if not os.path.isfile(makefile):
         raise Exception('Makefile does not exists: {}'.format(makefile))
     # Record current working directory then move to executable directory
-    exedir = os.path.dirname(makefile)
-    exefile = os.path.join(exedir,'vorovol')
     curdir = os.getcwd()
-    os.chdir(exedir)
+    os.chdir(os.path.dirname(makefile))
     # Clean up if the exeutable exists
-    if os.path.isfile(exefile):
-        os.system('make clean')
+    os.system('make clean')
     # Make & check that it worked
     os.system('make')
-    if not os.path.isfile(exefile):
+    if isinstance(exefile,str) and not os.path.isfile(exefile):
         raise Exception('Make failed to created executable: {}'.format(exefile))
     # Move back to original directory
     os.chdir(curdir)
+    return
+
+def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
+    """
+    Compiles vorovol executable using a Makefile.
+    """
+    # Check for required qhull library
+    execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
+    if not os.path.isfile(execfile_qhull):
+        make_qhull(makefile_qhull)
+    make(makefile,exefile=os.path.join(os.path.dirname(makefile),'vorovol'))
+    return
+
+def make_qhull(makefile=_makefile_qhull):
+    """
+    Compiles qhull libraries using a Makefile.
+    """
+    make(makefile,exefile=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
     return
 
 # ------------------------------------------------------------------------------
