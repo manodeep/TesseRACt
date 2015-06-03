@@ -34,6 +34,13 @@ The easiest way to install TesseRACt from the source code is to clone the reposi
 
 --------------------------------------------------------------------------------
 
+EXAMPLES
+========
+
+
+
+--------------------------------------------------------------------------------
+
 THE CONFIG FILE
 ===============
 
@@ -54,19 +61,18 @@ The TesseRACT user config file `.tessrc` is created in your home directory when 
     * `default-series` - String specifying test series that should be run by default when `examples.run_series` is called. ('conc' by default)
     * `avail-series` - List of available test series. TesseRACt currently supports the following series which are described in the Examples section below: conc, oblate, prolate, triax, npart, substr_mass, substr_rsep, substr_conc, and substr_rho0.
     * `nfw-methods` - List of methods for calculating NFW parameters that are used for each test by default. (voronoi, fit, rhalf, and vpeak by default)
-
+    * `default-conc` - Default concentration used for tests (10 by default)
+    * `default-subm` - Default mass of subhalo used for substructure tests in terms of the parent halo's virial mass (0.1 by default)
+    * `default-subr` - Default radius that subhalo is placed at for substructure tests in terms of the parent halo's virial radius (0.5 by default)
+    * `default-subc` - Default concentration of subhalo used for substructure tests. (50 by default)
+    * `default-subrho` - Default density of subhalo used for substructure tests in terms of the parent halo's central concentration (0.5 by default)
+    * `default-ellip` - Default ellipticity of halo for test which vary triaxiality. (0.5 by default)
 
 * `[qhull]` Options for controlling qhull.
     * `install-dir` - The directory under which qhull should be installed. This is initialized the first time that the TesseRACt package is imported. If this does not point to a valid qhull installation, TesseRACt will be unable to perform the Voronoi tessellation.
 
-
 For additional details on configuration file syntax, please see the documentation for the [ConfigParser](https://docs.python.org/2/library/configparser.html) package.
 
-
---------------------------------------------------------------------------------
-
-EXAMPLES
-========
 
 --------------------------------------------------------------------------------
 
