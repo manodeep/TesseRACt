@@ -1,6 +1,9 @@
 import numpy as np
 import os
 
+# TODO:
+# - Gadget IO
+
 # ------------------------------------------------------------------------------
 # LOGGING OF SNAPSHOT FORMATS
 _snapshot_formats = {}
@@ -162,6 +165,12 @@ def read_unfbi77(filename,return_npart=False):
 def write_unfbi77(filename,mass,pos,overwrite=False):
     """Write unformated f77 binary snapshot"""
     import struct
+    # Prevent overwrite
+    if os.path.isfile(filename) and not overwrite:
+        print 'Specified file already exists and overwrite not set.'
+        print '    '+filename
+        return
+    # Open file
     fd = open(filename,'w')
     # Write number of particles
     nout = len(mass)
