@@ -373,7 +373,7 @@ def write_param(filename,param,overwrite=False):
         return
     # Add optional parameters
     if param.get('PeriodicBoundariesOn',1)==0:
-        optpar.append('BoxSize')
+        optpar+=['BoxSize','Border']
     # Check for missing parameters
     missing = []
     for k in _paramlist:

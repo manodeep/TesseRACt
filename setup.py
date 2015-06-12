@@ -8,7 +8,7 @@ setup(
     packages = ['tesseract'],
     package_dir = {'tesseract': 'tesseract'},
     package_data = {'tesseract': ['README.md','default_config.ini','halos/*.snap',
-				  'qhull2002.1.tar',
+				  'qhull2002.1.tar','example.param',
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
     version = '0.1.1',
     author = 'Meagan Lang',
