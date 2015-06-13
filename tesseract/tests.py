@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """
-examples
-========
+tests
+=====
 
 Scripts to run tests on provided test halos.
 
@@ -659,7 +659,7 @@ def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth
             rlist*=100. # In percents
             rmax = max(rmax,max(np.abs(rlist)))
             if verbose:
-                print 'examples.py @ 625:',k
+                print 'tests.py @ 625:',k
                 print '    {:10s} {:5s} {:5s} {:5s} {:7s} {:5s} {:7s} {:5s}'.format('value','ctrue','cmeas','accu','accuR','prec','precR','inside?')
                 for cc,ww,xx,rr,ee in zip(clist,xlist,ylist,rlist,ikws['yerr']):
                     print '    {:10.2f} {:5.2f} {:5.2f} {:5.2f} {:7.4f} {:5.2f} {:7.4f} {}'.format(ww,cc,xx,np.abs(cc-xx),rr,ee,100.*ee/cc,np.abs(cc-xx)<ee)
