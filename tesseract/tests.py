@@ -3,7 +3,34 @@
 tests
 =====
 
-Scripts to run tests on provided test halos.
+This module provides methods for running package tests. These can be broken
+into single tests and test series. 
+
+Attributes:
+    _outputdir (str): Directory where test output will be saved.
+    _installdir (str): Directory containing the distribution installation. 
+    _halofmt (int): File format of the test halo snapshots.
+    _halodir (str): Directory containing test halo snapshots.
+    _copydir (str): Directory containing other realizations of test halo 
+        snapshots.
+    _list_conc (List[float]): Concentrations of available test halos.
+    _list_series (List[str]): Available test series.
+    _default_series (str): Test series that ``run_series()`` selects by
+        default.
+    _default_conc (float): Halo concentration that ``run_test()`` and 
+        ``run_series()`` use by default.
+    _default_subm (float): Substructure mass that ``run_test()`` and 
+        ``run_series()`` use by default for tests with substructure.
+    _default_subr (float): Substructure position that ``run_test()`` and 
+        ``run_series()`` use by default for tests with substructure.
+    _default_subc (float): Substructure concentration that ``run_test()`` and 
+        ``run_series()`` use by default for tests with substructure.
+    _default_subrho (float): Substructure density that ``run_test()`` and 
+        ``run_series()`` use by default for tests with substructure.
+    _default_ellip (float): Halo ellipticity that ``run_series()`` uses
+        by default for 'triax' series.
+    _nfwmeth (List[str]): Methods that are used to measure the concentration 
+        for tests.
 
 """
 
@@ -24,7 +51,7 @@ from . import config_parser
 from . import config
 
 # ------------------------------------------------------------------------------
-# Directories
+# DIRECTORIES
 # ===========
 _outputdir = config['outputdir']
 _installdir = os.path.dirname(os.path.realpath(__file__))
@@ -62,23 +89,36 @@ def testid(prefix='',c=_default_conc,
            squishy=False,squishz=False,decimate=False,substr=False,
            subm=_default_subm,subr=_default_subr,subc=_default_subc,
            subrho=_default_subrho,version=-1):
-    """
-    Returns an ID string for the corresponding run.
-        prefix  : string to start ID string with (default = '')
-        c       : concentration of run (default = 10)
-        squishy : factor that y coords should be squished by (default = False)
-        squishz : factor that z coords should be sauished by (default = False)
-        decimate: factor that particle number should be decimated by 
-                  (default = False)
-        substr  : if true, the test includes substructure (default = False)
-        Additional keywords that are only valid for substructure tests are:
-        subm    : mass of subhalo relative to parent's Mvir (default = 0.1)
-        subr    : radius of subhalo relative to parent's Rvir (default = 0.5)
-        subc    : concentration of substructure (default = 50)
-        subrho  : central density of subhalo relative to parent's central
-                  density (default = 0.5)
-        version : number in series of realizations. Set to -1 for the fiducial 
-                  version. (default = -1)
+    """Creates a standardized string that uniquely identifies a test.
+    
+    Args:
+        prefix (Optional[str]): string to start ID string with (default = '')
+        c (Optional[float]): concentration of run (default = `_default_conc`)
+        squishy (Optional[float]): factor that y coords should be squished by 
+            (default = False)
+        squishz (Optional[float]): factor that z coords should be sauished by 
+            (default = False)
+        decimate (Optional[int]): factor that particle number should be decimated 
+            by (default = False)
+        substr (Optional[bool]): If true, the test includes substructure 
+            (default = False)
+        subm (Optional[float]): mass of subhalo relative to parent's Mvir. 
+            Only used if `substr` == True. (default = `_default_subm`)
+        subr (Optional[float]): radius of subhalo relative to parent's Rvir. 
+            Only used if `substr` == True. (default = `_default_subr`)
+        subc (Optional[float]): concentration of substructure. 
+            Only used if `substr` == True. (default = `_default_subc`)
+        subrho (Optional[float]): central density of subhalo relative to parent's central
+            density. Only used if `substr` == True. (default = `_default_subrho`)
+        version (Optional[int]): test realization. Set to -1 for the fiducial 
+            version. (default = -1)
+
+    Returns:
+        str: A unique string identifying a test.
+
+    Raises:
+        ValueError: If the generated ID string is empty.
+
     """
     idstr = prefix
     if c is not None:
@@ -98,7 +138,7 @@ def testid(prefix='',c=_default_conc,
         idstr+='_ver{:03d}'.format(version)
     # Return
     if len(idstr)==0:
-        raise Exception('Empty ID string.')
+        raise ValueError('Empty ID string.')
     elif idstr.startswith('_'):
         return idstr[1:]
     else:
@@ -106,13 +146,17 @@ def testid(prefix='',c=_default_conc,
 
 def subid(subm=_default_subm,subr=_default_subr,subc=_default_subc,
           subrho=_default_subrho):
-    """
-    Returns a substructure ID string
-        subm    : mass of subhalo relative to parent's Mvir (default = 0.1)
-        subr    : radius of subhalo relative to parent's Rvir (default = 0.5)
-        subc    : concentration of substructure (default = 50)
-        subrho  : central density of subhalo relative to parent's central 
-                  density (default = 0.5)
+    """Creates a unique ID string for a set of substructure parameters.
+
+    Args:
+        subm (Optional[float]): mass of subhalo relative to parent's Mvir. 
+            Only used if `substr` == True. (default = _default_subm)
+        subr (Optional[float]): radius of subhalo relative to parent's Rvir. 
+            Only used if `substr` == True. (default = _default_subr)
+        subc (Optional[float]): concentration of substructure. 
+            Only used if `substr` == True. (default = _default_subc)
+        subrho (Optional[float]): central density of subhalo relative to parent's central
+            density. Only used if `substr` == True. (default = _default_subrho)
     """
     idstr=''
     if subm is not None: idstr+='_subm{}'.format(util.num2str(subm))
@@ -121,10 +165,15 @@ def subid(subm=_default_subm,subr=_default_subr,subc=_default_subc,
     if subrho is not None: idstr+='_subrho{}'.format(util.num2str(subrho))
     return idstr
 
-def count_copies(c):
-    """
-    Determine the number of duplicates that exist for a given concentration.
-        c: Concentration
+def _count_copies(c):
+    """Determine the number of realizations that exist of a halo with a given 
+    concentration.
+
+    Args:
+        c (float): Concentration.
+
+    Returns:
+        int: The number of realizations that exist.
     """
     import glob
     fcopy = os.path.join(_copydir,'c{}_*.copy'.format(int(c)))
@@ -134,52 +183,57 @@ def count_copies(c):
 # ------------------------------------------------------------------------------
 # METHODS FOR HANDLING TESTS
 # ==========================
-def param_test(idstr=None,filename=None,overwrite=False,topdir=None,prefix='',
-               snapfile=None,outputdir=None,version=-1,c=_default_conc,
+def param_test(idstr=None,filename=None,overwrite=False,topdir=_outputdir,
+               prefix='',snapfile=None,outputdir=None,version=-1,c=_default_conc,
                squishy=False,squishz=False,decimate=False,
                substr=False,subm=_default_subm,subr=_default_subr,
                subrho=_default_subrho,subc=_default_subc):
-    """
-    Create parameter file for a test. For an example of a valid parameter file
-    including descriptions of each parameter, please see 'example.param'.
+    """Creates a parameter file for a test. For an example of a valid parameter 
+    file including descriptions of each parameter, please see 'example.param'.
 
-    General keywords...
-        idstr    : String that should be used to identify this test. If not
-                   provided, one is created by the 'testid' method based on the 
-                   test parameters.
-        filename : Path to file where parameters should be saved. 
-                   (default = '[topdir]/[idstr]/[idstr].param')
-        overwrite: If True, any existing parameter file is overwritten
-                   (default = False)
-        topdir   : Path to directory where a separate directory should be
-                   created for this run based on idstr. If not provided, the
-                   'outputdir' entry in the config file is used.
-        prefix   : String to start generated idstr with. Only used if idstr is 
-                   not provided. (default = '')
+    Args:
+        idstr (Optional[str]): String that should be used to identify this test. If not
+            provided, one is created by the 'testid' method based on the 
+            test parameters.
+        filename (Optional[str]): Path to file where parameters should be saved. 
+            (default = '[topdir]/[idstr]/[idstr].param')
+        overwrite (Optional[bool]): If True, any existing parameter file is 
+            overwritten. (default = False)
+        topdir (Optional[str]): Path to directory where a separate directory 
+            should be created for this run based on idstr. (default = `_outputdir`)
+        prefix (Optional[str]): String to start generated idstr with. Only used 
+            if idstr is not provided. (default = '')
 
-    Keywords controling where files should be...
-        snapfile : Path to file where particle snapshot is for this test. If
-                   not provided, the appropriate test snapshot is selected.
-        outputdir: Path to directory where run output should be saved. If not 
-                   provided, the directory containing the generated parameter
-                   file is used.
+        snapfile (Optional[str]): Path to file where particle snapshot is for 
+            this test. If not provided, the appropriate test snapshot is selected.
+        outputdir (Optional[str]): Path to directory where run output should be 
+            saved. If not provided, the directory containing the generated 
+            parameter file is used.
 
-    Keywords controling which test is run...
-        version  : Number in series of realizations. Set to -1 for the fiducial 
-                   version. (default = -1)
-        c        : Concentration of run (default = 10)
-        squishy  : Factor that y coords should be squished by (default = False)
-        squishz  : Factor that z coords should be sauished by (default = False)
-        decimate : Factor that particle number should be decimated by 
-                   (default = False)
-        substr   : If true, the test includes substructure (default = False)
+        version (Optional[int]): test realization. Set to -1 for the fiducial 
+            version. (default = -1)
+        c (Optional[float]): concentration of run (default = `_default_conc`)
+        squishy (Optional[float]): factor that y coords should be squished by 
+            (default = False)
+        squishz (Optional[float]): factor that z coords should be sauished by 
+            (default = False)
+        decimate (Optional[int]): factor that particle number should be decimated 
+            by (default = False)
+        substr (Optional[bool]): If true, the test includes substructure 
+            (default = False)
 
-    Keywords that are only valid for substructure tests...
-        subm     : Mass of subhalo relative to parent's Mvir (default = 0.1)
-        subr     : Radius of subhalo relative to parent's Rvir (default = 0.5)
-        subc     : Concentration of substructure (default = 50)
-        subrho   : Central density of subhalo relative to parent's central
-                   density (default = 0.5)
+        subm (Optional[float]): mass of subhalo relative to parent's Mvir. 
+            Only used if `substr` == True. (default = `_default_subm`)
+        subr (Optional[float]): radius of subhalo relative to parent's Rvir. 
+            Only used if `substr` == True. (default = `_default_subr`)
+        subc (Optional[float]): concentration of substructure. 
+            Only used if `substr` == True. (default = `_default_subc`)
+        subrho (Optional[float]): central density of subhalo relative to parent's central
+            density. Only used if `substr` == True. (default = `_default_subrho`)
+
+    Returns:
+        dict: Dictionary containing parameters written to the file.
+
     """
     # Get base id and file names
     baseid = testid(c=c,version=version)
@@ -198,7 +252,7 @@ def param_test(idstr=None,filename=None,overwrite=False,topdir=None,prefix='',
         idstr_sub = ''
     # Get filenames if not provided
     if topdir is None:
-        topdir = config['outputdir']
+        topdir = _outputdir
     if filename is None:
         filename = os.path.join(topdir,idstr,idstr+'.param')
     if outputdir is None:
@@ -241,22 +295,30 @@ def param_test(idstr=None,filename=None,overwrite=False,topdir=None,prefix='',
     return param
 
 def load_test(param=None,Mscl=1.,Rscl=1.,**kwargs):
-    """
-    Loads & returns particle information for a test based on parameters. 
-        param: Dictionary of parameters for this test. (default = None)
-        Mscl : Scale factor that particle masses should be scaled by.
-               (default = 1.)
-        Rscl : Scale factor that particle positions (and volumes) should be
-               scaled by. (default = 1.)
-    If param is not provided, additional keywords are passed to param_test in 
-    order to construct a dictionary of parameters for this test. 
+    """Loads & returns particle information for a test based on parameters. 
 
-    A dictionary is returned containing:
-        'param': The parameter dictionary
-        'mass' : (N,) array of particle masses
-        'pos'  : (N,3) array of particle positions
-        'vol'  : (N,) array of particle volumes (only included if the voronoi
-                 tesselation output exists)
+    Args:
+        param (Optional[dict]): Dictionary of parameters defining a test. 
+            If param is not provided, additional keywords are passed to 
+            ``param_test`` in order to construct a dictionary of test 
+            parameters. (default = None)
+        Mscl (Optional[float]): Scale factor that particle masses should be 
+            scaled by. (default = 1.)
+        Rscl (Optional[float]): Scale factor that particle positions (and 
+            volumes) should be scaled by. (default = 1.)
+        **kwargs: Parameters that should be used to initialize a test
+            parameter file if `param` is not provided.
+
+    Returns:
+        dict: A dictionary is returned containing:
+            param (dict): The parameter dictionary for this test.
+            mass (np.ndarray): (N,) array of particle masses.
+            pos (np.ndarray): (N,3) array of particle positions.
+            vol (np.ndarray): (N,) array of particle volumes (only included 
+                if the voronoi tesselation output exists).
+
+    Raises:
+        ValueError: If the `snapfile` is not a valid path.
     """
     # Get parameters
     if param is None:
@@ -287,33 +349,45 @@ def load_test(param=None,Mscl=1.,Rscl=1.,**kwargs):
 # CORE METHODS FOR DOING A SERIES OF TESTS
 # ========================================
 def series_vallist(series,vlist=None,vlim=None,Nv=10):
-    """
-    Return the list of parameter values for a given series.
-        series    : String identifying what parameter should be varied. 
-                    (default = 'conc') Supported values are...
-          'conc'       : vary concentration of the halo (5,10,50)
-          'npart'      : vary number of particles (100 to 1,000,000)
-          'oblate'     : vary oblateness of the halo (0.3 to 0.9)
-          'prolate'    : vary prolateness of the halo (0.3 to 0.9)
-          'triax'      : vary triaxiality of the halo (0.1 to 0.9)
-          'substr_mass': include substructure of varying mass (0.01 to 0.2)
-          'substr_rsep': include substructure at varying radii (0.01 to 0.75)
-          'substr_conc': include substructure of varying concentration (5,10,50)
-          'substr_rho0': include substructure of varying central density (0.1 to 1)
-        vlist    : list of values to vary parameter specified by series over
-                   (if not provided, vlim and Nv are used to generate this 
-                   list. Default values for vlim are different for each
-                   series and are in parenthesis next to the description of each
-                   series above)
-        vlim     : Tuple of (min,max) values to vary parameter over
-        Nv       : Number of parameter variation that should be tested
+    """Creates a list of parameter values for a given series.
+
+    Args:
+        series (str): String identifying what parameter should be varied. 
+            Currently supported values include:
+                'conc'       : vary concentration of the halo (5,10,50)
+                'npart'      : vary number of particles (100 to 1,000,000)
+                'oblate'     : vary oblateness of the halo (0.3 to 0.9)
+                'prolate'    : vary prolateness of the halo (0.3 to 0.9)
+                'triax'      : vary triaxiality of the halo (0.1 to 0.9)
+                'substr_mass': substructure of varying mass (0.01 to 0.2)
+                'substr_rsep': substructure at varying radii (0.01 to 0.75)
+                'substr_conc': substructure of varying concentration (5,10,50)
+                'substr_rho0': substructure of varying density (0.1 to 1)
+        vlist (Optional[list]): list of values to vary parameter specified by 
+            series over (if not provided, `vlim` and `Nv` are used to generate 
+            this list. Default values for `vlim` are different for each series 
+            and are in parenthesis next to the description of each series 
+            above).
+        vlim (Optional[tuple]): (min,max) values to vary parameter over
+        Nv (Optional[int]): Number of parameter variations that the series
+            should include. (default = 10)
+
+    Returns:
+        list: Values that a parameter for a given series should be varied 
+            over.
+
+    Raises:
+        ValueError: If `series` is not in `_list_series` or `vlist` is
+            provided, but not a list.
     """
     # Check that series is in list of existing values
     if series not in _list_series:
-        raise Exception('Series {} is not in list of '.format(series)+
-                        'supported values: {}'.format(_list_series))
+        raise ValueError('Series {} is not in list of '.format(series)+
+                         'supported values: {}'.format(_list_series))
     # Create list of values
-    if vlist is None:
+    if isinstance(vlist,(list,np.ndarray)):
+        pass
+    elif vlist is None:
         if   series in ['conc','substr_conc']: vlist = _list_conc
         else:
             if vlim is None:
@@ -331,8 +405,10 @@ def series_vallist(series,vlist=None,vlim=None,Nv=10):
             if series=='npart':
                 vlist = vlist.astype(int)
                 vlist = np.array([1,5,10,50,100,500,1000,5000,10000])#,50000])
+    else:
+        raise ValueError('vlist must be a list or array.')
     # Return
-    return vlist
+    return list(vlist)
 
 def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
                ownfw=False,owvoro=False,owparam=False,owsnap=False,
@@ -447,9 +523,9 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
     if isinstance(errors,bool):
         if errors:
             if series == 'conc':
-                nerror = min([count_copies(ic) for ic in vlist])
+                nerror = min([_count_copies(ic) for ic in vlist])
             else:
-                nerror = count_copies(kws['c'])
+                nerror = _count_copies(kws['c'])
         else:
             nerror = 0
     elif isinstance(errors,int):
@@ -459,7 +535,7 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
                          'of iterations that should be used.')
     # Create file names
     if topdir is None: 
-        topdir = config['outputdir']
+        topdir = _outputdir
     series_prefix = prefix+'_'+series
     if nerror>0:
         series_prefix+='{:03d}'.format(nerror)
@@ -737,7 +813,7 @@ def avg_test(nerror=True,verbose=False,**kwargs):
     errlist = [-1]
     if isinstance(nerror,bool):
         if nerror:
-            nerror = count_copies(kwargs.get('c',_default_conc))
+            nerror = _count_copies(kwargs.get('c',_default_conc))
         else:
             nerror = 0
     elif isinstance(nerror,int):
