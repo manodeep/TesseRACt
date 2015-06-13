@@ -963,6 +963,7 @@ int read_parameter_file(char *fname) {
 	      *((int *) addr[i]) = -1;
 	    } else if ((strcmp(tag[i],"Bgc2HaloId")==0) && (All.PositionFileFormat!=3)) {
 	      *((int *) addr[i]) = -1;
+	    
 	    } else {
 	      printf("Error. I miss a value for tag '%s' in parameter file '%s'.\n", 
 		     tag[i], fname);
