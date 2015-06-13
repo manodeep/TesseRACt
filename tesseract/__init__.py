@@ -1,6 +1,4 @@
 #!/usr/bin/python
-# TODO:
-# - example.param
 """
 tesseract
 =========
@@ -19,7 +17,7 @@ io
   Routines for data input and output.
 util
   Misc. utility routines
-examples
+tests
   Routines for running and plotting different tests for the provided test halos.
 
 """
@@ -54,9 +52,9 @@ import voro
 import nfw
 import io
 import util
-import examples
+import tests
 
 
-__all__ = ['voro','nfw','io','util','examples']
+__all__ = ['voro','nfw','io','util','tests']
 
 
