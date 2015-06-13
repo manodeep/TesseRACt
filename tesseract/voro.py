@@ -9,6 +9,7 @@ from . import config,config_parser,_config_file_usr
 
 _installdir = os.path.dirname(os.path.realpath(__file__))
 _installdir_vorvol = os.path.join(_installdir,'vorovol')
+_example_parfile = os.path.join(_installdir,'example.param')
 
 # Vorovol files
 _makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
@@ -53,6 +54,35 @@ _paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
 _paramopt = ['NumDivide','OutputAdjacenciesOn','MaxNumSnapshot',
              'DecimateInputBy','SquishY','SquishZ',
              'GadgetParticleType','BgTreebiNskip','Bgc2HaloId']
+
+def tesselate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
+    """
+    Returns the tesselation volumes for a set of particle masses and positions
+    by creating the necessary files in the current working directory.
+        mass   : (N,1) array of particle masses.
+        pos    : (N,3) array of particle positions.
+        runtag : String identifying the run. This will be used to create the 
+                 necessary file names (default = 'test')
+    Additional keywords are passed to 'run'.
+    """
+    rundir = os.path.join(os.getcwd(),runtag)
+    if not os.path.isdir(rundir):
+        os.mkdir(rundir)
+    # Create parameter file
+    if parfile is None:
+        parfile = os.path.join(rundir,runtag+'.param')
+    param = dict(FilePrefix=runtag,
+                 PositionFile=os.path.join(rundir,runtag+'.snap'),
+                 PositionFileFormat=0)
+    param.update(**kwargs)
+    param = make_param(parfile,basefile=_example_parfile,**param)
+    # Create snapshot
+    snapfile = param['PositionFile']
+    if os.path.isfile(snapfile):
+        print 'Snapshot already exists. Using it.'
+    else:
+        from . import io
+        io.write_snapshot(snapfile,mass,pos,format=param['PositionFileFormat'])
 
 # ------------------------------------------------------------------------------
 # METHODS FOR INTERFACING WITH THE VOROVOL ROUTINE
@@ -117,7 +147,6 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     os.chdir(curdir)
     # Return code
     return code
-
 
 def make(makefile,exefile=None):
     """
@@ -199,6 +228,27 @@ def namefile(name,param):
     else:
         ext = ''
     return os.path.join(fdir,'{}{}.{}{}'.format(fnam,param['FileSuffix'],name,ext))
+
+def write_snapshot(param,mass,pos,overwrite=False,**kwargs):
+    """
+    Writes a position file. 
+        param    : Dictionary of vorovol parameters or path to parameter file
+                   containing them. This includes information on the name of the
+                   file ('PositionFile') and the format of the file 
+                   ('PositionFileFormat').
+        mass     : (N,) array of particle masses
+        pos      : (N,3) array of particle positions
+        overwrite: If True, the existing position file is overwritten.   
+    Additional keywords are passed to the appropriate write function.
+    """
+    from . import io
+    # Read parameters if its a string
+    if isinstance(param,dict): pass
+    elif isinstance(param,str):
+        param = read_param(param)
+    else:
+        raise Exception('Invalid parameter type: {}.'.format(type(param))+
+                        'Must be a dictionary or path to a parameter file.')
 
 def read_snapshot(param,return_npart=False,**kwargs):
     """
@@ -338,7 +388,7 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
     if os.path.isfile(filename) and not overwrite:
         print 'Specified file already exists and overwrite not set.'
         print '    '+filename
-        return
+        return read_param(filename)
     # Read base file if provided
     if basefile is not None:
         param = read_param(basefile)
@@ -373,7 +423,7 @@ def write_param(filename,param,overwrite=False):
         return
     # Add optional parameters
     if param.get('PeriodicBoundariesOn',1)==0:
-        optpar+=['BoxSize','Border']
+        optpar+=['BoxSize']
     # Check for missing parameters
     missing = []
     for k in _paramlist:

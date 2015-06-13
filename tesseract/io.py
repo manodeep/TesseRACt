@@ -120,10 +120,28 @@ class UnformattedBinary(Snapshot):
         return read_unfbi77(*args,**kwargs)
     def write(self,*args,**kwargs):
         return write_unfbi77(*args,**kwargs)
+    def parse_voropar(self,param):
+        kwargs = {}
+        if 'Unfbi77ArrayType' in param:
+            kwargs['dtype'] = param['Unfbi77ArrayType']
+        return kwargs
 
-def read_unfbi77(filename,return_npart=False):
-    """Read unformatted f77 binary snapshot."""
+def read_unfbi77(filename,return_npart=False,dtype='float32'):
+    """
+    Read unformatted f77 binary snapshot.
+        filename    : Full path to file that should be read.
+        return_npart: If True, only the number of particles is read from the 
+                      file (default = False).
+        dtype       : Data type of the mass and postion arrays in the snapshot. 
+                      vorovol currently only reads in float32 arrays. 
+                      (default = 'float32')
+    """
     import struct
+    # Check data type
+    dtype = np.dtype(dtype)
+    if dtype!=np.dtype('float32'):
+        raise Exception("vorvol assumes arrays are 32-bit floats.")
+    # Open file
     fd = open(filename,'rb')
     # Read in number of particles
     recl = struct.unpack('i',fd.read(4))[0]
@@ -134,29 +152,29 @@ def read_unfbi77(filename,return_npart=False):
     if return_npart: return nout
     # Read in masses
     recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*np.dtype('float32').itemsize):
+    if recl != (nout*dtype.itemsize):
         raise IOError('Error reading x positions from file.')
-    mass = np.fromfile(fd,dtype='float32',count=nout)
+    mass = np.fromfile(fd,dtype=dtype,count=nout)
     recl = struct.unpack('i',fd.read(4))[0]
     # Read in x,y,z positions
     pos = np.zeros((nout,3),dtype=np.float32)
     # X
     recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*np.dtype('float32').itemsize):
+    if recl != (nout*dtype.itemsize):
         raise IOError('Error reading x positions from file.')
-    pos[:,0] = np.fromfile(fd,dtype='float32',count=nout)
+    pos[:,0] = np.fromfile(fd,dtype=dtype,count=nout)
     recl = struct.unpack('i',fd.read(4))[0]
     # Y
     recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*np.dtype('float32').itemsize):
+    if recl != (nout*dtype.itemsize):
         raise IOError('Error reading x positions from file.')
-    pos[:,1] = np.fromfile(fd,dtype='float32',count=nout)
+    pos[:,1] = np.fromfile(fd,dtype=dtype,count=nout)
     recl = struct.unpack('i',fd.read(4))[0]
     # Z
     recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*np.dtype('float32').itemsize):
+    if recl != (nout*dtype.itemsize):
         raise IOError('Error reading x positions from file.')
-    pos[:,2] = np.fromfile(fd,dtype='float32',count=nout)
+    pos[:,2] = np.fromfile(fd,dtype=dtype,count=nout)
     recl = struct.unpack('i',fd.read(4))[0]
     # Close and return
     fd.close()
@@ -170,29 +188,33 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
         print 'Specified file already exists and overwrite not set.'
         print '    '+filename
         return
+    # Check data type
+    dtype = np.dtype('float32')
+    if mass.dtype!=dtype or pos.dtype!=dtype:
+        raise Exception("vorvol assumes arrays are 32-bit floats.")
     # Open file
-    fd = open(filename,'w')
+    fd = open(filename,'wb')
     # Write number of particles
     nout = len(mass)
     fd.write(struct.pack('i',np.dtype('int32').itemsize))
     fd.write(struct.pack('i',nout))
     fd.write(struct.pack('i',np.dtype('int32').itemsize))
     # Write masses
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     mass.tofile(fd)
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     # X Positions
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     pos[:,0].tofile(fd)
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     # Y Positions
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     pos[:,1].tofile(fd)
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     # Z Positions
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     pos[:,2].tofile(fd)
-    fd.write(struct.pack('i',nout*np.dtype('float32').itemsize))
+    fd.write(struct.pack('i',nout*dtype.itemsize))
     # Close and return
     fd.close()
     return
