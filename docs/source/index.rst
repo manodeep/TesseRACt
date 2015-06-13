@@ -12,9 +12,9 @@ Contents:
    :maxdepth: 2
 
    intro
-   installation
-   tutorial
-
+   install
+   config
+   todo
 
 Indices and tables
 ==================
