@@ -12,6 +12,6 @@ MaxNumSnapshot               -1
 DecimateInputBy              1
 SquishY                      -1
 SquishZ                      -1
-GadgetParticleType           -1
+ParticleType                 -1
 BgTreebiNskip                0
 Bgc2HaloId                   -1

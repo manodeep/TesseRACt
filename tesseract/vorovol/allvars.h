@@ -24,7 +24,7 @@ extern struct parameters
   float BoxSize;
   char PositionFile[MAXLEN_FILENAME];
   int PositionFileFormat;
-  int GadgetParticleType;
+  int ParticleType;
   int BgTreebiNskip;
   int Bgc2HaloId;
   char OutputDir[MAXLEN_FILENAME];
