@@ -14,6 +14,7 @@ _example_parfile = os.path.join(_installdir,'example.param')
 # Vorovol files
 _makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
 _execfile_vorovol = os.path.join(_installdir_vorvol,'vorovol')
+_sharedlib_vozutil = os.path.join(_installdir_vorvol,'lib','libvozutil.so')
 
 # Qhull installation
 if config_parser.has_option('qhull','install-dir'):
@@ -50,12 +51,12 @@ _paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
               'Border','BoxSize','PositionFile','PositionFileFormat','OutputDir',
               'OutputAdjacenciesOn','MaxNumSnapshot',
               'DecimateInputBy','SquishY','SquishZ',
-              'GadgetParticleType','BgTreebiNskip','Bgc2HaloId']
+              'ParticleType','BgTreebiNskip','Bgc2HaloId']
 _paramopt = ['NumDivide','OutputAdjacenciesOn','MaxNumSnapshot',
              'DecimateInputBy','SquishY','SquishZ',
-             'GadgetParticleType','BgTreebiNskip','Bgc2HaloId']
+             'ParticleType','BgTreebiNskip','Bgc2HaloId']
 
-def tesselate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
+def tessellate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
     """
     Returns the tesselation volumes for a set of particle masses and positions
     by creating the necessary files in the current working directory.
@@ -83,6 +84,24 @@ def tesselate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
     else:
         from . import io
         io.write_snapshot(snapfile,mass,pos,format=param['PositionFileFormat'])
+
+# ------------------------------------------------------------------------------
+# PYTHON WRAPPERS FOR C FUNCTIONS
+def tessellate(pos):
+    """
+    Run tessellation without output to file.
+    """
+    import ctypes
+    from ctypes.util import find_library
+    if not os.path.isfile(_sharedlib_vozutil):
+        print _sharedlib_vozutil
+        make_library('libvozutil.so')
+    os.environ['LD_LIBRARY_PATH'] = os.path.dirname(_sharedlib_vozutil)+':'+\
+        os.environ['LD_LIBRARY_PATH']
+    libvozutil = ctypes.CDLL(_sharedlib_vozutil,mode=ctypes.RTLD_GLOBAL)
+#    libvozutil = ctypes.cdll.LoadLibrary(_sharedlib_vozutil)
+    print dir(libvozutil)
+    raise Exception('This funciton is a work in progress. Do not use it.')
 
 # ------------------------------------------------------------------------------
 # METHODS FOR INTERFACING WITH THE VOROVOL ROUTINE
@@ -148,10 +167,12 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     # Return code
     return code
 
-def make(makefile,exefile=None):
+def make(makefile,product=None,target='all'):
     """
     Compiles an application using a Makefile.
         makefile: path to Makefile
+        product : path to product to check for successful make
+        target  : make target (default = 'all')
     """
     # Set default makefile & check that it exists
     makefile = os.path.expanduser(makefile)
@@ -160,14 +181,13 @@ def make(makefile,exefile=None):
     # Record current working directory then move to executable directory
     curdir = os.getcwd()
     os.chdir(os.path.dirname(makefile))
-    # Clean up if the exeutable exists
+    # Clean up, make, & move back to original directory
     os.system('make clean')
-    # Make & check that it worked
-    os.system('make')
-    if isinstance(exefile,str) and not os.path.isfile(exefile):
-        raise Exception('Make failed to created executable: {}'.format(exefile))
-    # Move back to original directory
+    os.system('make {}'.format(target))
     os.chdir(curdir)
+    # Check that it worked
+    if isinstance(product,str) and not os.path.isfile(product):
+        raise Exception('Make failed to create product: {}'.format(product))
     return
 
 def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
@@ -178,14 +198,30 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
     execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
     if not os.path.isfile(execfile_qhull):
         make_qhull(makefile_qhull)
-    make(makefile,exefile=os.path.join(os.path.dirname(makefile),'vorovol'))
+    make(makefile,product=os.path.join(os.path.dirname(makefile),'vorovol'))
+    return
+
+def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
+    """
+    Compiles vorovol library and turns it into a shared library.
+    """
+    # Check for required qhull library
+    execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
+    if not os.path.isfile(execfile_qhull):
+        make_qhull(makefile_qhull)
+    # Create library directory
+    libdir = os.path.join(os.path.dirname(makefile),'lib')
+    if not os.path.isdir(libdir):
+        os.mkdir(libdir)
+    # Create library
+    make(makefile,product=os.path.join(libdir,lib),target=lib)
     return
 
 def make_qhull(makefile=_makefile_qhull):
     """
     Compiles qhull libraries using a Makefile.
     """
-    make(makefile,exefile=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
+    make(makefile,product=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
     return
 
 # ------------------------------------------------------------------------------
@@ -214,8 +250,9 @@ def namefile(name,param):
     # Add strings
     if param['DecimateInputBy']>1: 
         fnam+='_dec{:d}'.format(param['DecimateInputBy'])
-    if param['PositionFileFormat']==1 and param['GadgetParticleType']>=0: 
-        fnam+='_{:d}'.format(param['GadgetParticleType'])
+    if param['ParticleType']>=0:
+        if param['PositionFileFormat'] in [1,4]:
+            fnam+='_{:d}'.format(param['ParticleType'])
     if param['PositionFileFormat']==3 and param['Bgc2HaloId']>=0:
         fnam+='_{:d}'.format(param['Bgc2HaloId'])
     if param['SquishY']>0 and param['SquishY']<1:
@@ -250,7 +287,7 @@ def write_snapshot(param,mass,pos,overwrite=False,**kwargs):
         raise Exception('Invalid parameter type: {}.'.format(type(param))+
                         'Must be a dictionary or path to a parameter file.')
 
-def read_snapshot(param,return_npart=False,**kwargs):
+def read_snapshot(param,return_npart=False,center=False,**kwargs):
     """
     Read position file. Downsample and performing volume preserving 
     transformation based on parameters. (This replicates what vorovol does when
@@ -309,6 +346,16 @@ def read_snapshot(param,return_npart=False,**kwargs):
             raise Exception('Error downsampling. Should have {}, '.format(Nnew)+
                             'but we have {}.'.format(len(mass)))
         mass*= (float(Nold)/float(Nnew))
+    # Center on the center of mass
+    if center:
+        if isinstance(center,(list,tuple,np.ndarray)) and len(center)==3:
+            com = center
+        elif isinstance(center,str) and center in ['com','mass']:
+            com = np.dot(pos.T,mass)/mass.sum()
+        else:
+            raise ValueError('Unknown center: {}'.format(center))
+        for i in range(3):
+            pos[:,i]-= com[i]
     # Return
     return mass,pos
 
@@ -366,14 +413,19 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
           1: Gadget snapshot
           2: Buildgal TREEBI files
           3: BGC2 halo catalogue
-        GadgetParticleType  : Integer gadget particle type
+        ParticleType  : Integer particle type. 
          -1: all particles
+         For gadget snapshots
           0: gas particles
           1: dark matter particles
           2: disk particles
           3: bulge particles
           4: star particles
           5: boundary particles, but why?
+         For tipsy snapshots
+          0: gas particles
+          1: dark matter particles
+          2: star particles
         BgTreebiNskip       : Number of particles to skip in TREEBI snapshot
         Bgc2HaloId          : ID number of halo in Bgc2 catalogue
         OutputDir           : Path to directory where output should be saved
@@ -488,7 +540,7 @@ def read_param(filename):
 # METHODS TO COMPUTE NFW
 def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             ownfw=False,plotflag=False,plotfile=None,residuals=True,delta=None,
-            Mscl=1.,Rscl=1.,**kwargs):
+            center=False,Mscl=1.,Rscl=1.,**kwargs):
     """
     Returns NFW parameters found using the specified method(s). The output
     is a dictionary of NFW parameters. If more than one method is specified, 
@@ -523,6 +575,12 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
        residuals: if True, residuals are also plotted
        delta    : virial overdensity factor (default = 200 for spherical 
                   techniques, 243 for voronoi)
+       center   : x,y,z location of center of halo or string specifying how
+                  the center should be calculated. If not provided, the halo is
+                  not recentered before the profile is computed. (default = False)
+                  Values include:
+         'com'      : center of mass
+         'vol'      : smallest volume
        Additional keywords are passed to each calc_nfw method that is called.
     """
     from . import nfw
@@ -558,7 +616,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
         raise Exception('param must be dictionary or path to parameter file '+
                         'not {}'.format(type(param)))
     # Read position file
-    mass,pos = read_snapshot(param)
+    mass,pos = read_snapshot(param,center=center)
     mass*=Mscl
     pos*=Rscl
     rad = np.sqrt(pos[:,0]**2. + pos[:,1]**2. + pos[:,2]**2.)

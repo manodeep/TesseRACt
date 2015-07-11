@@ -11,7 +11,7 @@ int compar(const void * n1, const void * n2) {
   return 2*(i1 > i2) - 1 + (i1 == i2);
 }
 
-int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, float **vols, int ThisTask) {
+int tessellate(coordT *points, int nvp, int periodic, float **vols, int ThisTask) {
   PARTADJ *adjs;
   coordT deladjs[3*MAXVERVER];
   int i,j;
@@ -19,6 +19,7 @@ int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, flo
   int exitcode = 0;
   int ninfinite;
   int d;
+  int countnadj2 = 0;
 
   /* Allocate adjacencies */
   if (!exitcode) {
@@ -34,7 +35,7 @@ int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, flo
     printf("\n");
     printf("Thread %03d:     File read.  Tessellating ...\n",ThisTask);
     fflush(stdout);
-    exitcode = delaunadj(points, nvp, nvpbuf, nvpall, periodic, &adjs, ThisTask);
+    exitcode = delaunadj(points, nvp, nvp, nvp, periodic, &adjs, ThisTask);
     printf("Thread %03d:     Done Tessellating. exitcode=%d\n",ThisTask,exitcode);
     fflush(stdout);
   }
@@ -70,13 +71,16 @@ int tesselate(coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, flo
         exitcode = adj2vol(deladjs, adjs[i].nadj, &((*vols)[i]), ThisTask);
         if (exitcode) break;
         (*vols)[i] *= (float)nvp; /* Why? */
-      }
       /* Particles bordering upper delaunay facet */
-      else if (adjs[i].nadj == -1) {
+      } else if (adjs[i].nadj == -1) {
         (*vols)[i] = (float)(-1); /* INFINITY; */
-      }
+      /* Particles with nadj = -2 (invalid vertex?) */
+      } else if (adjs[i].nadj == -2) {
+	countnadj2++;
+        printf("Thread %03d: Particle %d has nadj=%d (%d total)\n", 
+	       ThisTask,i,adjs[i].nadj,countnadj2);
       /* Particles that have a weird number of adjacencies */
-      else {
+      } else {
         printf("Thread %03d: Particle %d has nadj=%d\n",ThisTask,i,adjs[i].nadj);
         exitcode = 666;
       }
@@ -164,11 +168,13 @@ int delaunadj (coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, PA
     coplanar_points= qh_settemp (nvpall);
     qh_setzero(vertex_points, 0, nvpall);
     qh_setzero (coplanar_points, 0, nvpall);
-    FOREACHvertex_(vertices)
+    FOREACHvertex_(vertices) {
       qh_point_add (vertex_points, vertex->point, vertex);
+    }
     FORALLfacet_(qh facet_list) {
-      FOREACHpoint_(facet->coplanarset)
+      FOREACHpoint_(facet->coplanarset) {
         qh_point_add (coplanar_points, point, facet);
+      }
     }
     /* Loop over vertices */
     ver = 0;
@@ -204,7 +210,10 @@ int delaunadj (coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, PA
             }
           }
         }
-      } else (*adjs)[ver].nadj = -2;
+      } else {
+	/* */
+	(*adjs)[ver].nadj = -2;
+      }
 
       /* Enumerate the unique adjacencies*/
       if (adjst.nadj >= 4) {

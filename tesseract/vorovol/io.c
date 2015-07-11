@@ -16,6 +16,7 @@ int read_unfbi77(char *fname, float ***p, int decfact, int ThisTask);
 int read_gadget(char *fname0, float ***p, int decfact, int p_type, int ThisTask);
 int read_bgtreebi(char *fname, float ***p, int decfact, int nskip, int ThisTask);
 int read_bgc2(char *fname0, float ***p, int decfact, int haloid, int ThisTask);
+int read_tipsy(char *fname, float ***p, int decfact, int p_type, int ThisTask);
 
 void namefile(char *filename, char *name, char *suffix, char *ext) {
   char dumstr[100];
@@ -26,9 +27,11 @@ void namefile(char *filename, char *name, char *suffix, char *ext) {
     strcat(filename,dumstr);
   }
   /* Particle type */
-  if ((All.PositionFileFormat == 1) && (All.GadgetParticleType >= 0)) {
-    sprintf(dumstr,"_%d",All.GadgetParticleType);
-    strcat(filename,dumstr);
+  if (All.ParticleType >= 0) {
+    if ((All.PositionFileFormat == 1) || (All.PositionFileFormat == 4)) {
+      sprintf(dumstr,"_%d",All.ParticleType);
+      strcat(filename,dumstr);
+    }
   }
   /* Particle type */
   if ((All.PositionFileFormat == 3) && (All.Bgc2HaloId >= 0)) {
@@ -73,11 +76,13 @@ int read_positions_file(char *fname, float ***p, int ThisTask) {
   if (All.PositionFileFormat == 0) {
     np = read_unfbi77(fname,p,All.DecimateInputBy,ThisTask);
   } else if (All.PositionFileFormat == 1) {
-    np = read_gadget(fname,p,All.DecimateInputBy,All.GadgetParticleType,ThisTask);
+    np = read_gadget(fname,p,All.DecimateInputBy,All.ParticleType,ThisTask);
   } else if (All.PositionFileFormat == 2) {
     np = read_bgtreebi(fname,p,All.DecimateInputBy,All.BgTreebiNskip,ThisTask);
   } else if (All.PositionFileFormat == 3) {
     np = read_bgc2(fname,p,All.DecimateInputBy,All.Bgc2HaloId,ThisTask);
+  } else if (All.PositionFileFormat == 4) {
+    np = read_tipsy(fname,p,All.DecimateInputBy,All.ParticleType,ThisTask);
   } else {
     printf("Thread %03d: Invalid PositionFileFormat = %d.\n",ThisTask,All.PositionFileFormat);
     np = -2;
@@ -486,15 +491,22 @@ int read_bgc2(char *fname0, float ***p, int decfact, int haloid, int ThisTask)
     /* printf("Thread %03d: Reading %d groups from file %s\n",ThisTask,(int)header1.ngroups,buf); */
 
     /* Group info */
+    SKIP;
     for(n=0;n<header1.ngroups;n++,gtot++) {
       groups[gtot] = (BGC_GROUP_DATA *)malloc(sizeof(BGC_GROUP_DATA));
       if (groups[gtot] == NULL) {
 	printf("Thread %03d: Unable to allocate group %d in read_bgc2!\n",ThisTask,gtot);
 	return(-20);
       }
-      SKIP;
+      /*SKIP;*/
       fread(groups[gtot],sizeof(BGC_GROUP_DATA),1,fd);
-      SKIP;
+      /* SKIP; */
+      /* Negative particle number means something is wrong */
+      if ((int)groups[gtot]->npart < 0) {
+	printf("Thread %03d: Negative number of particles in group %d.\n",ThisTask,gtot);
+	return(-25);
+      }
+      /* Set haloid to first group if not provided */
       if ((haloid < 0) && (gtot==0)) haloid = groups[gtot]->id;
       if (groups[gtot]->id == haloid) { /* Use parent_id if substructure not included in parent */
 	np+=groups[gtot]->npart;
@@ -547,14 +559,15 @@ int read_bgc2(char *fname0, float ***p, int decfact, int haloid, int ThisTask)
     SKIP;
 
     /* Group info */
+    SKIP;
     for(k=0;k<header1.ngroups;k++) {
-      SKIP;
       SKIP_GROUP;
-      SKIP;
     }
+    SKIP;
 
     /* Particle info */
     for(k=0;k<header1.ngroups;k++,gtot++) {
+      SKIP;
       if (groups[gtot]->id == haloid) {
 	for(n=0;n<(int)(groups[gtot]->npart);n++,ntot++) {
 	  if ((ntot % decfact) == 0) {
@@ -564,24 +577,19 @@ int read_bgc2(char *fname0, float ***p, int decfact, int haloid, int ThisTask)
 		     ThisTask,pc_new);
 	      return(-21);
 	    }
-	    SKIP;
 	    SKIP_PART;
-	    SKIP;
 	    memmove((*p)[pc_new], dummy_part.pos, 3*sizeof(float));
 	    pc_new++;
 	  } else {
-	    SKIP;
 	    SKIP_PART;
-	    SKIP;
 	  }
 	}
       } else {
 	for(n=0;n<(int)(groups[gtot]->npart);n++) {
-	  SKIP;
 	  SKIP_PART;
-	  SKIP;
 	}
       }
+      SKIP;
     }
 
     /* Close this file */
@@ -781,6 +789,178 @@ int read_gadget(char *fname0, float ***p, int decfact, int p_type, int ThisTask)
 }
 
 
+int read_tipsy(char *fname, float ***p, int decfact, int p_type, int ThisTask)
+{
+  FILE   *fd;
+  int    k,n,ntot,pc,dummy;
+  int    np, npdec;
+
+  struct io_header 
+  {
+    double   time;
+    int      ntot;
+    int      ndim;
+    int      npart[3];
+  } header1;
+
+  struct particle_gas
+  {
+    float   mass;
+    float   pos[3];
+    float   vel[3];
+    float   rho;
+    float   eps;
+    float   metals;
+    float   phi;
+  } TIPSY_GAS_PART;
+
+  struct particle_dm
+  {
+    float   mass;
+    float   pos[3];
+    float   vel[3];
+    float   eps;
+    float   phi;
+  } TIPSY_DM_PART;
+
+  struct particle_star
+  {
+    float   mass;
+    float   pos[3];
+    float   vel[3];
+    float   metals;
+    float   tform;
+    float   eps;
+    float   phi;
+  } TIPSY_STAR_PART;
+
+  TIPSY_GAS_PART dummy_gas;
+  TIPSY_DM_PART dummy_dm;
+  TIPSY_STAR_PART dummy_star;
+
+  /* Open file */
+  if(!(fd=fopen(fname,"r")))
+    {
+      printf("Thread %03d: can't open file `%s`\n",ThisTask,fname);
+      return(-10);
+    }
+
+  /* Read header and weird trailing 4 bytes */
+  fread(&header1, sizeof(header1), 1, fd);
+  fread(&dummy, sizeof(dummy), 1, fd);
+
+  /* Get numbers from header */
+  if (p_type > 0) {
+    np = header1.npart[p_type];
+  } else {
+    np = header1.ntot;
+  }
+
+  /* Decimate */
+  npdec = np/decfact;
+  if ((np % decfact) != 0) {
+    npdec++;
+  }
+  printf("Thread %03d: Decimating %d particle by %d results in %d particles\n",
+	 ThisTask,np,decfact,npdec);
+  if (npdec < 4) { 
+    printf("Thread %03d: Cannot create a volume with <4 particles\n",ThisTask);
+    return(-50);
+  }
+
+  /* Allocate */
+  (*p) = (float **)malloc(npdec*sizeof(float *));
+  if ((*p) == NULL) {
+    printf("Thread %03d: Unable to allocate particle array in read_tipsy!\n",
+	   ThisTask);
+    return(-20);
+  }
+  (**p)--; 
+
+  /* Initialize things */
+  ntot = 0;
+  pc = 0;
+
+  /* Gas particles */
+  k = 0;
+  if ((p_type < 0) || (p_type == k)) {
+    for(n=0;n<header1.npart[k];n++,ntot++) {
+      fread(&dummy_gas, sizeof(dummy_gas), 1, fd);
+      if ((ntot % decfact) == 0) {
+	(*p)[pc] = (float *)malloc(3*sizeof(float));
+	if ((*p)[pc] == NULL) {
+	  printf("Thread %03d: Unable to allocate %d particle in read_tipsy!\n",
+		 ThisTask,pc);
+	  return(-21);
+	}
+	(*p)[pc] = dummy_gas.pos;
+	pc++;
+      }
+    }
+  } else {
+    for(n=0;n<header1.npart[k];n++) {
+      fread(&dummy_gas, sizeof(dummy_gas), 1, fd);
+    }
+  }
+
+  /* Dark matter particles */
+  k++;
+  if ((p_type < 0) || (p_type == k)) {
+    for(n=0;n<header1.npart[k];n++,ntot++) {
+      fread(&dummy_dm, sizeof(dummy_dm), 1, fd);
+      if ((ntot % decfact) == 0) {
+	(*p)[pc] = (float *)malloc(3*sizeof(float));
+	if ((*p)[pc] == NULL) {
+	  printf("Thread %03d: Unable to allocate %d particle in read_tipsy!\n",
+		 ThisTask,pc);
+	  return(-21);
+	}
+	(*p)[pc] = dummy_dm.pos;
+	pc++;
+      }
+    }
+  } else {
+    for(n=0;n<header1.npart[k];n++) {
+      fread(&dummy_dm, sizeof(dummy_dm), 1, fd);
+    }
+  }
+
+  /* Star particles */
+  k++;
+  if ((p_type < 0) || (p_type == k)) {
+    for(n=0;n<header1.npart[k];n++,ntot++) {
+      fread(&dummy_star, sizeof(dummy_star), 1, fd);
+      if ((ntot % decfact) == 0) {
+	(*p)[pc] = (float *)malloc(3*sizeof(float));
+	if ((*p)[pc] == NULL) {
+	  printf("Thread %03d: Unable to allocate %d particle in read_tipsy!\n",
+		 ThisTask,pc);
+	  return(-21);
+	}
+	(*p)[pc] = dummy_star.pos;
+	pc++;
+      }
+    }
+  } else {
+    for(n=0;n<header1.npart[k];n++) {
+      fread(&dummy_star, sizeof(dummy_star), 1, fd);
+    }
+  }
+  
+  /* Close the file */
+  fclose(fd);
+
+  /* Ensure that we have the right number of particles */
+  if (pc != npdec) {
+    printf("Thread %03d: Read in %d particles, but %d were expected from the header.\n",
+	   ThisTask,pc,npdec);
+    return(-51);
+  }
+
+  return(npdec);
+}
+
+
 int read_parameter_file(char *fname) {
 #define FLOAT 1
 #define STRING 2
@@ -859,8 +1039,8 @@ int read_parameter_file(char *fname) {
       addr[nt] = &All.PositionFileFormat;
       id[nt++] = INT;
   
-      strcpy(tag[nt], "GadgetParticleType");
-      addr[nt] = &All.GadgetParticleType;
+      strcpy(tag[nt], "ParticleType");
+      addr[nt] = &All.ParticleType;
       id[nt++] = INT;
 
       strcpy(tag[nt], "BgTreebiNskip");
@@ -957,7 +1137,7 @@ int read_parameter_file(char *fname) {
 	      strcpy(addr[i],"");
 	    } else if ((strcmp(tag[i],"PositionFile")==0) && (All.PositionFileFormat==-1)) {
 	      strcpy(addr[i],"");
-	    } else if ((strcmp(tag[i],"GadgetParticleType")==0) && (All.PositionFileFormat!=1)) {
+	    } else if ((strcmp(tag[i],"ParticleType")==0) && (All.PositionFileFormat!=1) && (All.PositionFileFormat!=4)) {
 	      *((int *) addr[i]) = -1;
 	    } else if ((strcmp(tag[i],"BgTreebiNskip")==0) && (All.PositionFileFormat!=2)) {
 	      *((int *) addr[i]) = -1;

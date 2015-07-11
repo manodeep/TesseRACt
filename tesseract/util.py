@@ -307,4 +307,3 @@ def num2str(numval,formstr=None,decrep='p',negrep='n',nsig=3,trimzero=True):
     return decstr.translate(trantab,rtab)
 
 
-# ------------------------------------------------------------------------------
