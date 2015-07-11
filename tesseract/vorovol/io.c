@@ -803,7 +803,7 @@ int read_tipsy(char *fname, float ***p, int decfact, int p_type, int ThisTask)
     int      npart[3];
   } header1;
 
-  struct particle_gas
+  typedef struct particle_gas
   {
     float   mass;
     float   pos[3];
@@ -814,7 +814,7 @@ int read_tipsy(char *fname, float ***p, int decfact, int p_type, int ThisTask)
     float   phi;
   } TIPSY_GAS_PART;
 
-  struct particle_dm
+  typedef struct particle_dm
   {
     float   mass;
     float   pos[3];
@@ -823,7 +823,7 @@ int read_tipsy(char *fname, float ***p, int decfact, int p_type, int ThisTask)
     float   phi;
   } TIPSY_DM_PART;
 
-  struct particle_star
+  typedef struct particle_star
   {
     float   mass;
     float   pos[3];
