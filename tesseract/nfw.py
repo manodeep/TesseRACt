@@ -277,6 +277,20 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
         rhoc    : critical density in the same units as r and menc 
                   (default = 1.1845e2 Msol/kpc**3)
         G       : gravitational constant in correct units (default = 1)
+
+    Returns:
+        nfwpar: A dictionary of parameters relation to the determined
+            NFW profile. Keys include:
+                mvir (float): Virial mass.
+                rvir (float): Virial radius.
+                vvir (float): Circular velocity at the virial radius.
+                rhalf (float): Radius enclosing half the virial mass.
+                vpeak (float): Peak circular velocity.
+                rvpeak (float): Radius where circular velocity peaks.
+                c (float): Concentration.
+                ms (float): Scale mass.
+                rs (float): Scale radius.
+                rho0 (float): Normalizing density. 
     """
     # Set defaults
     if sortby is None and not issorted:

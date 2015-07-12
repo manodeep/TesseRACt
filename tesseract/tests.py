@@ -416,89 +416,95 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
                ellip=_default_ellip,subm=_default_subm,subr=_default_subr,
                subc=_default_subc,subrho=_default_subrho,topdir=None,
                prefix='',plotflag=True,plotfile=None,plotprof=True,**kwargs):
-    """
-    Run a series of tests that vary some halo parameter. Returns a dictionary
-    of NFW parameters for each value. Keys are str(value). The items they refer
-    to are dictionaries returned by voro.get_nfw with input methods from 
-    nfwmeth. See voro.get_nfw for details on their structure.
+    """Run a series of tests that vary some halo parameter. 
 
-    Keywords controling the series of runs that are executed...
-        series    : String identifying what parameter should be varied. Each
-                    parameter has additional keywords that may be supplied to
-                    control the test further. These are decribed below.
-                    (default = 'conc') Supported values are...
-          'conc'       : Vary concentration of the halo (5,10,50)
-          'npart'      : Vary number of particles (100 to 1,000,000)
-          'oblate'     : Vary oblateness of the halo (0.3 to 0.9)
-          'prolate'    : Vary prolateness of the halo (0.3 to 0.9)
-          'triax'      : Vary triaxiality of the halo (0.1 to 0.9)
-          'substr_mass': Include substructure of varying mass (0.01 to 0.2)
-          'substr_rsep': Include substructure at varying radii (0.01 to 0.75)
-          'substr_conc': Include substructure of varying concentration (5,10,50)
-          'substr_rho0': Include substructure of varying central density (0.1 to 1)
-        vlist    : List of values to vary parameter specified by series over
-                   (if not provided, vlim and Nv are used to generate this 
-                   list. Default values for vlim are different for each
-                   series and are in parenthesis next to the description of each
-                   series above)
-        vlim     : Tuple of (min,max) values to vary parameter over
-        Nv       : Number of parameter variation that should be tested
-        nfwmeth  : List of methods that should be used to find NFW profiles
-                   each test value.
-        errors   : Number of versions that should be run in order to get errors.
-                   If set to True, all versions that can be found are used. If
-                   set to False, no errors are included. (default = False)
+    Args:
+        series (str): Identifies what parameter should be varied. Each
+            parameter has additional keywords that may be supplied to
+            control the test further. These are decribed below.
+            (default = 'conc') Supported values are...
+                'conc'       : Vary concentration of the halo (5,10,50)
+                'npart'      : Vary number of particles (100 - 1,000,000)
+                'oblate'     : Vary oblateness of the halo (0.3 - 0.9)
+                'prolate'    : Vary prolateness of the halo (0.3 - 0.9)
+                'triax'      : Vary triaxiality of the halo (0.1 - 0.9)
+                'substr_mass': Substructure of varying mass (0.01 - 0.2)
+                'substr_rsep': Substructure at varying radii (0.01 - 0.75)
+                'substr_conc': Substructure of varying concentration (5,10,50)
+                'substr_rho0': Substructure of varying central density (0.1 - 1)
+        vlist (Optional[list]): List of values to vary parameter specified by 
+            series over (if not provided, vlim and Nv are used to generate this 
+            list. Default values for vlim are different for each series and are 
+            in parenthesis next to the description of each series above).
+        vlim (Optional[tuple]): (min,max) values to vary parameter over.
+        Nv (Optional[int]): Number of variations that should be tested.
+        nfwmeth (Optional[list]): List of methods that should be used to find 
+            NFW profiles each test value.
+        errors (Optional[int]): Number of versions that should be run in order 
+            to get errors. If set to True, all versions that can be found are 
+            used. If set to False, no errors are included. (default = False)
 
-    Keywords modifying the fiducial run for each series...
-        c        : Concentration of parent halo (default = 10)
-                   Used for all series except 'conc' for obvious reasons.
-        decimate : Factor that particle number should be decimated by 
-                   (default = False) Invalid for series 'npart'.
-        squishy  : Factor that y coords should be squished by (default = False)
-                   Invalid if series in ['oblate','prolate','triax'].
-        squishz  : Factor that z coords should be sauished by (default = False)
-                   Invalid if series in ['oblate','prolate','triax'].
-        ellip    : Ellipticity of halo (default = 0.5)
-                   Only used for 'triax' series to constrain ratio between the
-                   largest and smallest halo axes.
-        subm     : Mass of subhalo in terms of the parent halo's virial mass
-                   (default = 0.1) Only used for 'substr_*' series, but not
-                   for 'substr_mass'.
-        subr     : Distance of subhalo from the center of the parent in terms
-                   of the parent halo's virial radius (default = 0.5)
-                   Only used for 'substr_*' series, but not for 'substr_rsep'.
-        subc     : Concentration of subhalo (default = 50) Only used for 
-                   'substr_*' series, but not for 'substr_conc'.
-        subrho   : Central density of subhalo relative to parent's central
-                   density. Only used for 'substr_*' series, but not for
-                   'substr_rho'. (default = 0.5)
+        c (Optional[float]): Concentration of parent halo (default = 10)
+            Used for all series except 'conc' for obvious reasons.
+        decimate (Optional[int]): Factor that particle number should be 
+            decimated by. (default = False) Invalid for series 'npart'.
+        squishy (Optional[float]): Factor that y coords should be squished by 
+            (default = False) Invalid if series in ['oblate','prolate','triax'].
+        squishz (Optional[float]): Factor that z coords should be sauished by 
+            (default = False) Invalid if series in ['oblate','prolate','triax'].
+        ellip (Optional[float]): Ellipticity of halo (default = 0.5)
+            Only used for 'triax' series to constrain ratio between the
+            largest and smallest halo axes.
+        subm (Optional[float]): Mass of subhalo in terms of the parent halo's 
+            virial mass (default = 0.1) Only used for 'substr_*' series, but 
+            not for 'substr_mass'.
+        subr (Optional[float]): Distance of subhalo from the center of the 
+            parent in terms of the parent halo's virial radius (default = 0.5)
+            Only used for 'substr_*' series, but not for 'substr_rsep'.
+        subc (Optional[float]): Concentration of subhalo (default = 50) Only 
+            used for 'substr_*' series, but not for 'substr_conc'.
+        subrho (Optional[float]): Central density of subhalo relative to 
+            parent's central density. Only used for 'substr_*' series, but not 
+            for 'substr_rho'. (default = 0.5)
 
-    Keywords controling how files are handled...
-        topdir   : Full path to directory where plots and data for this series 
-                   should be saved. The default is taken from the 'outputdir'
-                   option in the configuration file.
-        prefix   : String to start generated series & run ids with. 
-                   (default = '')
-        ownfw    : If true, NFW parameters for individual runs in this series
-                   are overwritten. (default = False)
-        owvoro   : If true, any existing vorovol output is overwritten
-                   (default = False)
-        owparam  : If true, any existing parameter files are overwritten
-                   (default = False)
-        owsnap   : If true, any existing snapshot files are overwritten
-                   (default = False)
-        plotflag : If true, concentrations for this test series are plotted
-                   (default = True)
-        plotfile : File where profile plot should be saved
-        plotprof : If true, profiles for each test are plotted (default = True)
+        topdir (Optional[str]): Path to directory where a separate directory 
+            should be created for this run based on idstr. 
+            (default = `_outputdir`)
+        prefix (Optional[str]): String to start generated idstr with. 
+            (default = '')
+        ownfw (Optional[bool]): If true, NFW parameters for individual runs in 
+            this series are overwritten. (default = False)
+        owvoro (Optional[bool]): If true, any existing vorovol output is 
+            overwritten. (default = False)
+        owparam (Optional[bool]): If true, any existing parameter files are 
+            overwritten. (default = False)
+        owsnap (Optional[bool]): If true, any existing snapshot files are 
+            overwritten. (default = False)
+        plotflag (Optional[bool]): If true, concentrations for this test series 
+            are plotted. (default = True)
+        plotfile (Optional[str]): File where profile plot should be saved.
+        plotprof (Optional[bool]): If true, profiles for each test are plotted .
+            (default = True)
 
-    Additional keywords are passed to avg_run for each value in the series.
+        **kwargs: Additional keywords are passed to `avg_run` for each value in 
+            the series.
+
+    Returns:
+        data (dict): NFW parameters for each value. Keys are str(value). The 
+            items they refer to are dictionaries returned by voro.get_nfw with 
+            input methods from nfwmeth. See `voro.get_nfw` for details on their 
+            structure.
+
+    Raises:
+        ValueError: If `series` is not in `_list_series`.
+        ValueError: If `errors` is not an int or bool.
+
     """
     import pickle
     # Check that series is in list of existing values
     if series not in _list_series:
-        raise Exception('Series {} is not in list of '.format(series)+
-                        'supported values: {}'.format(_list_series))
+        raise ValueError('Series {} is not in list of '.format(series)+
+                         'supported values: {}'.format(_list_series))
     # List of parameter values
     vlist = series_vallist(series,vlist=vlist,vlim=vlim,Nv=Nv)
     # Force overwrites in case snapshot or parameter files change
@@ -594,22 +600,30 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
 def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth,
                 residuals=True,errorbars=True,errorbars_res=False,legend=False,
                 verbose=True):
-    """
-    Plot performance of each series as a function of value.
-        series   : parameter that this series values
-        data     : dictionary of data that should be plotted
-        vlist    : list of parameter values that series covers
-                   (optional if data is a file)
-        clist    : list of true concentrations for each value
-                   (optional if data is a file)
-        plotfile : file where this plot should be saved. If not provided the plot
-                   is just displayed and not saved.
-        nfwmeth  : list of methods that should be plotted
-        residuals: if True, residuals are also plotted (default = True)
-        errorbars: if True, errorbars are included
-        legend   : if True, a legend is put on the top. (default = False)
-        verbose  : if True, information about the series is printed. 
-                   (default = True)
+    """Plot performance of each series as a function of value.
+
+    Args:
+        series (str): parameter that this series values
+        data (dict): dictionary of data that should be plotted or full path to 
+            file containing the data that should be plotted.
+        vlist (Optional[list]): list of parameter values that series covers
+            (optional if data is a file)
+        clist (Optional[list]): list of true concentrations for each value
+            (optional if data is a file)
+        plotfile (Optional[str]): file where this plot should be saved. If not 
+            provided the plot is just displayed and not saved.
+        nfwmeth (Optional[list]): list of methods that should be plotted
+        residuals (Optional[bool]): if True, residuals are also plotted 
+            (default = True)
+        errorbars (Optional[bool]): if True, errorbars are included
+        legend (Optional[bool]): if True, a legend is put on the top. (default = False)
+        verbose (Optional[bool]): if True, information about the series is printed. 
+            (default = True)
+
+    Raises:
+        ValueError: If there arn't enough colors for all of the values.
+        ValueError: If vlist or clist are not provided for the data dictionary.
+
     """
     import matplotlib.pyplot as plt
     import pickle
@@ -633,13 +647,14 @@ def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth
     limits = {}
     ticks = {}
     if len(nfwmeth)>len(colors):
-        raise Exception('Only have {} colors for {} nfwmeths.'.format(len(colors),len(nfwmeth)))
+        raise ValueError('Only have {} colors '.format(len(colors))+
+                         'for {} nfwmeths.'.format(len(nfwmeth)))
     if not errorbars:
         errorbars_res = False
     # Load data if its a file
     if isinstance(data,dict):
         if vlist is None or clist is None:
-            raise Exception('Must provide vlist and clist if data is a dictionary.')
+            raise ValueError('Must provide vlist and clist if data is a dictionary.')
     elif isinstance(data,str):
         fd = open(data,'r')
         data = pickle.load(fd)
@@ -801,13 +816,31 @@ def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth
 # METHODS FOR DOING SINGLE TESTS
 # ==============================
 def avg_test(nerror=True,verbose=False,**kwargs):
-    """
-    Average over a suite of tests to get the mean and standard deviation for
-    different fitting procedures.
-        nerror : Number of test runs that should be averaged over. If True,
-                 all existing runs are averaged.
-        verbose: If True, information is printed out for each run.
-    Additional keywords are passed to run_test.
+    """Run multiple realiziations of a test in order to get the mean and 
+    standard deviation on the parameters determined by different techinques.
+
+    Args:
+        nerror (Optional[int]): Number of test runs that should be averaged 
+            over. If True, all existing runs are averaged. (default = True)
+        verbose (Optional[bool]): If True, information is printed out for each 
+            run. (default = False)
+        **kwargs: Additional keywords are passed to run_test.
+
+    Returns:
+        code (int): Integer code specifying state of the test. Any value other 
+            0 indicates that there was an error with all of the runs.
+        out (dict): The same as the output dictionary returned by run_test,
+            with the exception that the values returned are averaged over 
+            the different realizations. In addtion, each method dictionary
+            will include the standard deviations of these values under the
+            keys k+'_std' and
+               Nstd (int): Number of realizations used to compute average.
+
+    Raises:
+        ValueError: If nerror is not a bool or integer.
+        ValueError: If filenames are provided as input. Filenames must be
+            generated automatically in order to prevent overwrite.
+
     """
     # List of errors
     errlist = [-1]
@@ -867,66 +900,83 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
              c=_default_conc,squishy=False,squishz=False,decimate=False,
              substr=False,subm=_default_subm,subr=_default_subr,
              subc=_default_subc,subrho=_default_subrho,**nfwkw):
-    """
-    Run a test. This includes creating the necessary parameter and snapshot 
-    files, running vorovol, and determining the concentration.
+    """Run a test.
 
-    General keywords...
-        idstr    : String that should be used to identify this test. If not
-                   provided, one is created by the 'testid' method based on the 
-                   test parameters.
-        topdir   : Path to directory where a separate directory should be
-                   created for this run based on idstr. If not provided, the
-                   'outputdir' entry in the config file is used.
-        prefix   : String to start generated idstr with. Only used if idstr is 
-                   not provided. (default = '')
-        verbose  : If true, infomation about the run is printed. 
-                   (default = True)
+    This inclues creating the necessary parameter and snapshot files, running
+    the tessellation code, and determining the concentration.
 
-    Keywords controling file paths and if they should be overwritten...
-        outputdir: Path to directory where run output should be saved. If not 
-                   provided, the directory containing the generated parameter
-                   file is used.
-        parfile  : Path to file where parameters should be saved
-        snapfile : Path to file where particle snapshot is for this test. If
-                   not provided, the appropriate test snapshot is selected.
-        exefile  : Path to vorovol executable
-        outfile  : Path to file where vorovol runtime output should be piped
-        owvoro   : If true, any existing vorovol output is overwritten. This
-                   sets ownfw to True. (default = False)
-        owparam  : If true, any existing parameter file is overwritten
-                   (default = False)
-        owsnap   : If true, any existing snapshot file is overwritten. This
-                   also sets owvoro to True. (default = False)
+    Args:
+        idstr (Optional[str]): String that should be used to identify this 
+            test. If not provided, one is created by the 'testid' method based 
+            on the test parameters.
+        topdir (Optional[str]): Path to directory where a separate directory 
+            should be created for this run based on idstr. 
+            (default = `_outputdir`)
+        prefix (Optional[str]): String to start generated idstr with. Only used 
+            if idstr is not provided. (default = '')
+        verbose (Optional[bool]): If true, infomation about the run is printed. 
+            (default = True)
 
-    Keywords controling which test is run...
-        version  : Number in series of realizations. Set to -1 for the fiducial 
-                   version. (default = -1)
-        c        : Concentration of run (default = 10)
-        squishy  : Factor that y coords should be squished by (default = False)
-        squishz  : Factor that z coords should be sauished by (default = False)
-        decimate : Factor that particle number should be decimated by 
-                   (default = False)
-        substr   : If true, the test includes substructure (default = False)
+        outputdir (Optional[str]): Path to directory where run output should be 
+            saved. If not provided, the directory containing the generated 
+            parameter file is used.
+        parfile (Optional[str]): Path to file where parameters should be saved
+        snapfile (Optional[str]): Path to file where particle snapshot is for 
+            this test. If not provided, the appropriate test snapshot is 
+            selected.
+        exefile (Optional[str]): Path to vorovol executable
+        outfile (Optional[str]): Path to file where vorovol runtime output 
+            should be piped
+        owvoro (Optional[bool]): If true, any existing vorovol output is 
+            overwritten. This sets ownfw to True. (default = False)
+        owparam (Optional[bool]): If true, any existing parameter file is 
+            overwritten (default = False)
+        owsnap (Optional[bool]): If true, any existing snapshot file is 
+            overwritten. This also sets owvoro to True. (default = False)
 
-    Keywords that are only valid for substructure tests...
-        subm     : Mass of subhalo relative to parent's Mvir (default = 0.1)
-        subr     : Radius of subhalo relative to parent's Rvir (default = 0.5)
-        subc     : Concentration of substructure (default = 50)
-        subrho   : Central density of subhalo relative to parent's central
-                   density (default = 0.5)
+        version (Optional[int]): test realization. Set to -1 for the fiducial 
+            version. (default = -1)
+        c (Optional[float]): concentration of run (default = `_default_conc`)
+        squishy (Optional[float]): factor that y coords should be squished by 
+            (default = False)
+        squishz (Optional[float]): factor that z coords should be sauished by 
+            (default = False)
+        decimate (Optional[int]): factor that particle number should be 
+            decimated by (default = False)
+        substr (Optional[bool]): If true, the test includes substructure 
+            (default = False)
 
-    Additional keywords are passed to voro.get_nfw. Some keywords are modified
-    by this method. These include:
-        nfwmeth  : List of methods that should be used to find NFW profiles
-                   each test value.
-        nfwfile  : Path to file where NFW fit should be saved. 
-                   (default = '[outputdir]/[idstr]_nfw.dat')
-        ownfw    : If True, any existing NFW data file is overwritten. If
-                   owvoro is True, this is set to True as well in order to make
-                   sure the file reflects the most recent tessellation.
-        plotfile : File where profile plot should be saved.
-                   (default = '[outputdir]/[idstr]_profile.png')
+        subm (Optional[float]): mass of subhalo relative to parent's Mvir. 
+            Only used if `substr` == True. (default = `_default_subm`)
+        subr (Optional[float]): radius of subhalo relative to parent's Rvir. 
+            Only used if `substr` == True. (default = `_default_subr`)
+        subc (Optional[float]): concentration of substructure. 
+            Only used if `substr` == True. (default = `_default_subc`)
+        subrho (Optional[float]): central density of subhalo relative to 
+            parent's central density. Only used if `substr` == True. 
+            (default = `_default_subrho`)
+
+        **nfwkw: Additional keywords are passed to voro.get_nfw. Some keywords 
+            are modified by this method. These include:
+                nfwmeth (Optional[list]): List of methods that should be used 
+                    to find NFW profiles each test value.
+                nfwfile (Optional[str]): Path to file where NFW fit should be 
+                    saved. (default = '[outputdir]/[idstr]_nfw.dat')
+                ownfw (Optional[bool]): If True, any existing NFW data file is 
+                    overwritten. If owvoro is True, this is set to True as well 
+                    in order to make sure the file reflects the most recent 
+                    tessellation.
+                plotfile (Optional[str]): File where profile plot should be 
+                    saved. (default = '[outputdir]/[idstr]_profile.png')
+
+    Returns:
+        code (int): Code describing the success or failure of the test as 
+            returned by `voro.run`.
+        out (dict): Results dictionary returned by `voro.get_nfw`.
+
+    Raises:
+        ValueError: If the snapfile provided does not exist and there is not 
+            a way to create it (Only substructure snapfiles can be created).
     """
     # Get parameters
     param = param_test(idstr=idstr,prefix=prefix,filename=parfile,snapfile=snapfile,
@@ -953,7 +1003,7 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
                         version=version)
         # If its not substructure, it should already exist
         else:
-            raise Exception('Cannot create snapshot: {}'.format(snapfile))
+            raise ValueError('Cannot create snapshot: {}'.format(snapfile))
     # Run tessellation
     code = voro.run(param,exefile=exefile,outfile=outfile,
                     overwrite=owvoro,verbose=verbose)
@@ -970,23 +1020,40 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
     # Return
     return code,out
         
-def make_substr(filename,parfile,overwrite=False,
+def make_substr(filename,parfile,overwrite=False,version=-1,trialrun=False,
                 subm=_default_subm,subr=_default_subr,subc=_default_subc,
-                subrho=_default_subrho,version=-1,trialrun=False):
-    """
-    Create snapshot containing substructure.
-        filename : file where snapshot with substructure should be saved
-        parfile  : file containing parent halo that subhalo should be added to
-        overwrite: if true, any existing snapshot is replaced
-        subm     : mass of subhalo relative to parent's Mvir (default = 0.1)
-        subr     : radius of subhalo relative to parent's Rvir (default = 0.5)
-        subc     : concentration of substructure (default = 50)
-        subrho   : central density of subhalo relative to parent's central
-                   density (default = 0.5)
-        version  : number in series of realizations. Set to -1 for the fiducial 
-                   version. (default = -1)
-        trialrun : if true, calculations are done and printed, but a snapshot 
-                   is not created. (default = False)
+                subrho=_default_subrho):
+    """Create snapshot containing substructure.
+
+    Args:
+        filename (str): File where snapshot with substructure should be saved.
+        parfile (str): File containing parent halo that subhalo should be 
+            added to.
+        overwrite (Optional[bool]): If true, any existing snapshot is replaced.
+            (default = False)
+        version (Optional[int]): test realization. Set to -1 for the fiducial 
+            version. (default = -1)
+        trialrun (Optional[bool]): If true, calculations are done and printed, 
+            but a snapshot is not created. (default = False)
+
+        subm (Optional[float]): mass of subhalo relative to parent's Mvir. 
+            (default = `_default_subm`)
+        subr (Optional[float]): radius of subhalo relative to parent's Rvir. 
+            (default = `_default_subr`)
+        subc (Optional[float]): concentration of substructure. 
+            (default = `_default_subc`)
+        subrho (Optional[float]): central density of subhalo relative to 
+            parent's central density. (default = `_default_subrho`)
+
+    Raises:
+        ValueError: If parfile does not exist.
+        ValueError: If a file containing the template for the subhalo does 
+            not exist.
+        ValueError: The particles in the parent and subhalo have different
+            masses.
+        ValueError: The generated mass array does not have the correct length.
+        ValueError: The generated position array does not have the correct 
+            shape.
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite and not trialrun:
@@ -998,14 +1065,14 @@ def make_substr(filename,parfile,overwrite=False,
         os.mkdir(snapdir)
     # Check for necessary files
     if not os.path.isfile(parfile):
-        raise Exception('Parent halo snapshot does not exist: {}'.format(parfile))
+        raise ValueError('Parent halo snapshot does not exist: {}'.format(parfile))
     subid = testid(c=subc,version=version)
     if version==-1:
         subfile = os.path.join(_halodir,subid+'.snap')
     else:
         subfile = os.path.join(_copydir,subid+'.copy')
     if not os.path.isfile(subfile):
-        raise Exception('Sub halo snapshot does not exist: {}'.format(subfile))
+        raise ValueError('Sub halo snapshot does not exist: {}'.format(subfile))
     # Load base snapshot
     mass1,pos1 = io.read_snapshot(parfile,format=_halofmt)
     N1 = len(mass1)
@@ -1022,7 +1089,7 @@ def make_substr(filename,parfile,overwrite=False,
     rho2 = util.calc_rhoenc(mass2,r2,rvir2/100.)
     # Transform mass by downsampling particles
     if mass1[-1]!=mass2[-1]:
-        raise Exception('Halos have different particle masses. m1={} m2={}'.format(mass1[-1],mass2[-1]))
+        raise ValueError('Halos have different particle masses. m1={} m2={}'.format(mass1[-1],mass2[-1]))
     msub = subm*mvir1
     mfrac = msub/mvir2
     Nsub = int(mfrac*N2)
@@ -1063,9 +1130,9 @@ def make_substr(filename,parfile,overwrite=False,
     mass = np.concatenate((mass1,mass_sub))
     pos = np.concatenate((pos1,pos_sub))
     if len(mass)!=N:
-        raise Exception('Mass should have {} elements, but it has {}.'.format(N,len(mass)))
+        raise ValueError('Mass should have {} elements, but it has {}.'.format(N,len(mass)))
     if pos.shape!=(N,3):
-        raise Exception('Position should have shape ({},3) but it has {}'.format(N,pos.shape))
+        raise ValueError('Position should have shape ({},3) but it has {}'.format(N,pos.shape))
     # Write to file and return
     if not trialrun:
         io.write_snapshot(filename,mass,pos,overwrite=overwrite,format=_halofmt)

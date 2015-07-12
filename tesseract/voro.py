@@ -1,10 +1,33 @@
+#!/usr/bin/python
+"""
+voro
+====
+
+This module provides the classes and methods necessary for computing and
+using Voronoi diagrams to compute concentration.
+
+Attributes:
+    _installdir (str): Directory containing the distribution installation. 
+    _installdir_vorvol (str): Directory containing the `vorovol` source code.
+    _example_parfile (str): Path to example parameter file.
+    _makefile_vorovol (str): Path to vorovol Makefile.
+    _execfile_vorovol (str): Path to vorovol executable.
+    _sharedlib_vozutil (str): Path to vozutil shared library.
+    _qhulldir (str): Directory where Qhull was installed.
+    _installdir_qhull (str): Directory containing the Qhull source code.
+    _makefile_qhull (str): Path to Qhull Makefile.
+    _execfile_qhull (str): Path to the necessary Qhull header file.
+    _paramlist (list): Required vorovol parameters.
+    _paramopt (list): Optional vorovol parameters.
+
+"""
+
 import os,pickle
 import numpy as np
 from . import util
 from . import config,config_parser,_config_file_usr
 # TODO: 
-# - fix units in snapshots and volume files so that Mscl and Rscl are not
-#   needed in get_nfw
+# - Remove Mscl & Rscl from get_nfw?
 # - suppress vorovol output from qhull
 
 _installdir = os.path.dirname(os.path.realpath(__file__))
@@ -582,6 +605,14 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
          'com'      : center of mass
          'vol'      : smallest volume
        Additional keywords are passed to each calc_nfw method that is called.
+
+    Returns:
+        out (dict): If only one method is specified, this is the dictionary of 
+            NFW parameters returned by `nfw.calc_nfw` with the addition of
+                N (int): Number of particles used.
+            If multiple methods are provided, this keys correspond to the 
+            methods tested and the values are the nfw parameter dictionaries
+            returned by `nfw.calc_nfw` for each method.
     """
     from . import nfw
     colors = ['b','r','g','m','c']
