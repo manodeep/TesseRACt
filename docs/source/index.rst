@@ -14,6 +14,7 @@ Contents:
    intro
    install
    config
+   code
    todo
 
 Indices and tables
