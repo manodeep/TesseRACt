@@ -571,7 +571,7 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
                 raise IOError('Expected block of size {}, '.format(head_size)+
                               'but block footer indicates {}.'.format(fint))
         # Count particles in arrays
-        npos_i = 0 ; nmass_i = 0:
+        npos_i = 0 ; nmass_i = 0
         for t in typelist:
             npos_i+= header_i['npart'][t]
             if header_i['massarr'][t]==0:
