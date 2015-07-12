@@ -1,33 +1,67 @@
+#!/usr/bin/python
+"""
+nfw
+===
+
+This module provides methods for determining various aspects relating to NFW
+profiles.
+
+Attributes:
+    _default_delta (float): Virial overdensity factor that should be used any 
+        time it is not provided. It is specified by the `default-rhoc` option
+        in the `nfw-options` section of the tesseract config file.
+    _default_rhoc (float): Critical density that should be used any time it is 
+        not provided. it is specified by the `default-rhoc` option in the 
+        `nfw-options` section of the tesseract config file. Some values of note
+        include:
+            1.1845e2 Msol/kpc**3 - Value assumed by langmm's buildgal.
+            1.4139e2 Msol/kpc**3 - Value assumed by khb's buildgal.
+            1.4624e2 Msol/kpc**3 - Value derived from the Gadget2 cosmology.
+
+"""
+
+# Standard packages
 import numpy as np
 import copy
+
+# Sister modules
 from . import util
 from . import config_parser
 
-# TODO:
-# - raise exception in calc_virial for over dense
-
 # ------------------------------------------------------------------------------
 # DEFAULT VALUES FOR COSMOLOGY
-# ============================
 _default_delta = config_parser.getfloat('nfw-options','default-delta')
 _default_rhoc = config_parser.getfloat('nfw-options','default-rhoc')
-#_default_delta = 200.
-#_default_rhoc = 1.1845e2 # number from Meagan Lang's buildgal
-# _default_rhoc = 1.4139e2 # number from Kelly Holley-Bockelmann's buildgal
-# _default_rhoc = 1.4624e2 # number from Gadget2 cosmology
 
 # ------------------------------------------------------------------------------
 # UTILITIES RELATING TO DETERMINING VIRIAL QUANTITIES
 def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
-    """
-    Calculates the virial radius and mass of a halo from particle information. 
-    Either rho or menc must be provided. If both are provided, rho is used.
-        r    : radii of particles
-        rho  : mean enclosed density at each particle radii in r
-        menc : enclosed mass at each particle radii in r
-        delta: factor determining virial overdensity (default = 200)
-        rhoc : critical density in the same units as r and menc 
-               (default = 1.1845e2 Msol/kpc**3)
+    """Calculates the virial radius and mass of a halo from particle 
+    information. Either rho or menc must be provided. If both are provided, 
+    rho is used. If the whole halo is more dense than the virial overdensity, 
+    the maximum radius is used.
+    
+    Args:
+        r (np.ndarray): (N,) Particle radii.
+        rho (Optional[np.ndarray]): (N,) Mean enclosed density at each r.
+        menc (Optional[np.ndarray]): (N,) Enclosed mass at each r.
+        delta (Optional[float]): Factor determining virial overdensity 
+            (default = `_default_delta`)
+        rhoc (Optional[float]): Critical density in the same units as r and 
+            menc or rho (default = `_default_rhoc`)
+
+    Returns:
+        rvir (float): Virial radius.
+        mvir (float): Virial mass.
+
+    Raises:
+        ValueError: If neither rho or menc is provided.
+        Exception: If no part of the halo is not denser than the virial 
+            overdensity.
+        
+
+    .. todo:: Raise exception for halo that is entirely denser than viral?
+
     """
     # Set defaults
     if delta is None: delta = _default_delta
@@ -36,7 +70,7 @@ def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
     # Calculated rho if not provided
     if rho is None:
         if menc is None:
-            raise Exception('Both rho and menc are None. Provided at least one.')
+            raise ValueError('Both rho and menc are None. Provided at least one.')
         rho = menc/util.sphvol(r)
     # Find where density exceeds virial overdensity
     idxvir = (rho>=delrho)
@@ -48,31 +82,44 @@ def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
     # Find this radius and mass starting from radius
     rvir = np.max(r[idxvir])
     mvir = delrho*util.sphvol(rvir)
-    # print 'from radius'
-    # print rvir,mvir
-    # Find this radius and mass starting from mass
-    # mvir = np.max(menc[idxvir])
-    # rvir = util.sphrad(mvir/delrho)
-    # print 'from mass'
-    # print rvir,mvir
     # Return
     return rvir,mvir
 def calc_rvir(*args,**kwargs):
-    """Calculates virial radius. See get_virial for details."""
+    """Calculates virial radius. See `nfw.calc_virial` for details.
+
+    Returns:
+        rvir (float): Virial radius.
+
+    """
     return get_virial(*args,**kwargs)[0]
 def calc_mvir(*args,**kwargs):
-    """Calculates virial mass. See get_virial for details."""
+    """Calculates virial mass. See `nfw.calc_virial` for details.
+
+    Returns:
+        mvir (float): Virial mass.
+
+    """
     return get_virial(*args,**kwargs)[1]
 
 def calc_rhalf(r,menc,mvir=None,delta=None,rhoc=None):
-    """
-    Calculate half mass radius from particle information.
-        r    : radii of particles
-        menc : enclosed mass at each particle radii in r
-        mvir : virial mass (provide to save time)
-        delta: factor determining virial overdensity (default = 200)
-        rhoc : critical density in the same units as r and menc 
-               (default = 1.1845e2 Msol/kpc**3)
+    """Calculate half mass radius from particle information.
+    
+    Args:
+        r (np.ndarray): (N,) Particle radii.
+        menc (np.ndarray): (N,) Enclosed mass at each radius.
+        mvir (Optional[float]): Virial mass (provide to save time).
+        delta (Optional[float]): Factor determining virial overdensity.
+            (default = `_default_delta`)
+        rhoc (Optional[float]): Critical density in the same units as r and 
+            menc. (default = `_default_delta`)
+
+    Returns:
+        float: Radius enclosing half the Virial mass.
+
+    Raises:
+        Exception: If all masses are greater than the half mass.
+        Exception: If all masses are less than the half mass.
+
     """
     # Get enclosed mass and virial mass
     if mvir is None:
@@ -92,22 +139,40 @@ def calc_rhalf(r,menc,mvir=None,delta=None,rhoc=None):
     
 # ------------------------------------------------------------------------------
 # FITTING AND SUCH
-def nfwgc(c):
-    """NFW g(r_rs)"""
+def _nfwgc(c):
+    """Utility function for NFW g(r_rs).
+    
+    Args:
+        c (float): Concentraton.
+
+    Returns:
+        float: np.log(1+c) - c/(1+c)
+
+    """
     return (np.log(1.+c)-c/(1.+c))
 
 def profile(r,ms=1.,rs=1.,G=1.,method='mass'):
-    """
-    Return NFW profile at provided radii for the given parameters.
-        r     : radii
-        ms    : scale mass (default = 1)
-        rs    : scale radius (default = 1)
-        G     : gravitational constant in correct units (default = 1)
-                (only required for method = 'pot')
-        method: type of proviles that should be returned (default = 'mass')
-          'rho' : density profile
-          'mass': cummulative mass profile
-          'pot' : potential profile
+    """Return NFW profile at provided radii for the given parameters.
+
+    Args:
+        r (np.ndarray): (N,) Radii.
+        ms (Optional[float]): Scale mass. (default = 1)
+        rs (Optional[float]): Scale radius. (default = 1)
+        G (Optional[float]): Gravitational constant in correct units. 
+            Only used for `method = 'pot'`. (default = 1) 
+        method (Optional[str]): Type of profile that should be returned. 
+            (default = 'mass') Valid values include:
+                'rho' : density profile
+                'mass': cummulative mass profile
+                'pot' : potential profile
+    
+    Returns:
+        np.ndarray: (N,) Density, enclosed mass, or potential profile at
+            each radius. 
+
+    Raises:
+        ValueError: If `method` is not a recognized option.
+
     """
     if ms is None: ms = 1.
     if rs is None: rs = 1.
@@ -119,28 +184,40 @@ def profile(r,ms=1.,rs=1.,G=1.,method='mass'):
     if   method=='rho' : out=rho0/(s*((1.0+s)**2.0))
     elif method=='mass': out=ms*(np.log(1.+s)-s/(1.+s))
     elif method=='pot' : out=-(G*ms/rs)*(np.log(1.+s)/s)
-    else: raise Exception('Invalid profile method: {}'.format(method))
+    else: raise ValueError('Invalid profile method: {}'.format(method))
     # Return
     return out
 
 def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
         plotflag=False,plotfile=None,**kwargs):
-    """
-    Fit an NFW profile.
-        r       : radii
-        y       : variable to be fit (depends on method)
-        rs      : initial guess at scale radius (default = 1)
-        ms      : initial guess at scale mass (default = 1)
-        G       : gravitational constant in correct units
-                  (only required for method = 'pot')
-        method  : type of profile that y should be fit to (default = 'mass')
-          'rho' : density profile
-          'mass': cummulative mass profile
-          'pot' : potential profile
-        plotflag: when True, the fit is plotted
-        plotfile: path to file where plot should be saved
-        Additional keywords are passed to the minimize/leastsq function from
-        the scipy.optimize module, depending on if minimize exists or not.
+    """Fit an NFW profile to provided data.
+
+    Args:
+        r (np.ndarray): (N,) Radii.
+        y (np.ndarray): (N,) Variable to be fit (depends on method).
+        rs (Optional[float]): Initial guess at scale radius. (default = 1)
+        ms (Optional[float]): Initial guess at scale mass. (default = 1)
+        G (Optional[float]): Gravitational constant in correct units. Only 
+            required for `method = 'pot'`. (default = 1)
+        method (Optional[str]): Type of profile that should be fit to y. 
+            (default = 'mass') Valid values include:
+                'rho' : density profile
+                'mass': cummulative mass profile
+                'pot' : potential profile
+        plotflag (Optional[bool]): When True, the fit is plotted. 
+            (default = False)
+        plotfile (Optional[str]): Path to file where plot should be saved.
+        **kwargs: Additional keywords are passed to the minimize/leastsq 
+            function from the scipy.optimize module, depending on if minimize 
+            exists or not.
+
+    Returns:
+        ms (float): Scale mass.
+        rs (float): Scale radius.
+
+    Raises:
+        Exception: If fit is not successful.
+        
     """
     # Set initial guess and bounds
     p0 = [ms,rs]
@@ -161,8 +238,33 @@ def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
 def plotfit(r,ydat,rs=None,ms=None,G=1.,method='mass',
             plotfile=None,residuals=True,label='fit',color='k',
             axs=None,axs_res=None,**kwargs):
-    """
-    Plot a fit to an NFW profile.
+    """Plot a fit to an NFW profile.
+
+    Args:
+        r (np.ndarray): (N,) Radii.
+        ydat (np.ndarray): (N,) Measured values at r. (depends on method)
+        rs (Optional[float]): Scale radius. If not provided, it is fit.
+        ms (Optional[float]): Scale mass. If not provided, it is fit.
+        G (Optional[float]): Gravitational constant in the correct units. Only used if
+            `method = 'pot'`. (default = 1)
+        method (Optional[str]): Description of what profile ydat contains.
+            (default = 'mass') Valid values include:
+                'rho' : density profile
+                'mass': cummulative mass profile
+                'pot' : potential profile
+        plotfile (Optional[str]): Full path to file where plot should be saved.
+            If not provided, the plot is displayed instead.
+        residuals (Optional[bool]): If True, fit residuals are plotted in 
+            axs_res. (default = False)
+        label (Optional[str]): Label to give the profile lines.  
+            (default = 'fit')
+        color (Optional[tuple,str]): Color for profile lines.
+        axs (Optional[plt.Axes]): Existing axes that profile should be plotted 
+            in. If not provided, one is created.
+        axs_res (Optional[plt.Axes]): Existing axes that profile should be 
+            plotted in. If not provided, one is created.
+        **kwargs: Additional keyword arguments are passed to `nfw.fit`.
+
     """
     import matplotlib.pyplot as plt
     labelx = -0.1
@@ -245,38 +347,44 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
              rvir=None,mvir=None,vvir=None,vpeak=None,rvpeak=None,rhalf=None,
              delta=None,rhoc=None,G=None,plotflag=False,plotfile=None,
              label=None,axs=None,axs_res=None,residuals=True,color='k'):
-    """
-    Calculates NFW parameters based on particle information. Either m or menc
-    must be provided. If both are provided, menc is used. 
-        r       : particle radii
-        m       : particle masses (must be provided if hist is True)
-        menc    : mass enclosed by each particle
-        method  : method that should be used to determine NFW parameters.
-                  (default = 'halfmass')
-          'rhalf': half-mass radius relation (See concen_rhalf)
-          'vpeak': peak circular velocity (See concen_vpeak)
-          'fit'  : leastsq fitting to mass profile
-        sortby  : array that masses should be sorted by before determining
-                  mass enclosed. If not provided, r is used to sort.
-        issorted: if True, arrays are assumed to be sorted by radius
-        hist    : if True, NFW parameters are determine after creating a
-                  mass weighted histogram of particle positions. In this case, 
-                  m must be provided. 
-        nbins   : number of bins that should be used for the histogram
-                  (default = 100)
-        rmin    : minimum radius that should be used in calculations
-                  (default = 0.05*rvir)
-        rmax    : maximum radius that should be used in calculations
-                  (default = rvir)
-        rvir    : virial radius (provide to save time)
-        mvir    : virial mass (provide to save time)
-        vvir    : virial velocity (provide to save time, but not much)
-        vpeak   : peak circular velocity (provide to save time)
-        rvpeak  : radius at which vpeak occurs (provide to save time)
-        delta   : factor determining virial overdensity (default = 200)
-        rhoc    : critical density in the same units as r and menc 
-                  (default = 1.1845e2 Msol/kpc**3)
-        G       : gravitational constant in correct units (default = 1)
+    """Calculates NFW parameters based on particle information. Either m or 
+    menc must be provided. If both are provided, menc is used. 
+
+    Args:
+        r (np.ndarray): (N,) Particle radii.
+        m (Optional[np.ndarray]): (N,) Particle masses. Must be provided if 
+            hist is True.
+        menc (Optional[np.ndarray]): (N,) Mass enclosed at each radius.
+        method (Optional[str]): Method that should be used to determine NFW 
+            parameters. (default = 'halfmass') Valid values include:
+                'rhalf': half-mass radius relation (See concen_rhalf)
+                'vpeak': peak circular velocity (See concen_vpeak)
+                'fit'  : leastsq fitting to mass profile
+        sortby (Optional[np.ndarray]): (N,) array that masses should be 
+            sorted by before determining the mass enclosed. If not provided, 
+            r is used to sort.
+        issorted (Optional[np.ndarray]): If True, arrays are assumed to be 
+            sorted in order to save time. (default = False)
+        hist (Optional[np.ndarray]): If True, NFW parameters are determine 
+            after creating a mass weighted histogram of particle positions. 
+            In this case, m must be provided. (default = False) 
+        nbins (Optional[int]): Number of bins that should be used for the 
+            histogram. (default = 100)
+        rmin (Optional[float]): Minimum radius that should be used in 
+            calculations. (default = 0.05*rvir)
+        rmax (Optional[float]): Maximum radius that should be used in 
+            calculations. (default = rvir)
+        rvir (Optional[float]): Virial radius (saves time).
+        mvir (Optional[float]): Virial mass (saves time).
+        vvir (Optional[float]): Virial velocity (saves time, not much).
+        vpeak (Optional[float]): Peak circular velocity (saves time).
+        rvpeak (Optional[float]): Radius where vpeak occurs (saves time).
+        delta (Optional[float]): Factor determining virial overdensity. 
+            (default = `_default_delta`)
+        rhoc (Optional[float]): Critical density in the same units as r and 
+            menc. (default = `_default_rhoc`)
+        G (Optional[float]): Gravitational constant in correct units. 
+            (default = 1)
 
     Returns:
         nfwpar: A dictionary of parameters relation to the determined
@@ -291,12 +399,17 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
                 ms (float): Scale mass.
                 rs (float): Scale radius.
                 rho0 (float): Normalizing density. 
+
+    Raises:
+        ValueError: If `hist` is True and `m` is not provided.
+        ValueError: If provided `method` is unsupported.
+
     """
     # Set defaults
     if sortby is None and not issorted:
         sortby = r
     if hist and m is None:
-        raise Exception('Using a weighted histogram requires m be provided.')
+        raise ValueError('Using a weighted histogram requires m be provided.')
     # Allow for binning from method
     if method.endswith('_binned'):
         method = copy.deepcopy(method.split('_binned')[0])
@@ -349,10 +462,10 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
         ms,rs = fit(rarr,marr,method='mass',ms=mvir/2.,rs=rhalf)
         c = rvir/rs
     else: 
-        raise Exception('Unsupported method: {}'.format(method))
+        raise ValueError('Unsupported method: {}'.format(method))
     # Other NFW parameters
     if rs is None: rs = rvir/c
-    rho0 = mvir/((4./3.)*np.pi*(rs**3.)*nfwgc(c))
+    rho0 = mvir/((4./3.)*np.pi*(rs**3.)*_nfwgc(c))
     if ms is None: ms = rho0*(4./3.)*np.pi*(rs**3.)
     # Plot
     if plotflag:
@@ -366,43 +479,64 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
     return nfwpar
 
 def concen_rhalf(rhalf,rvir,method='leastsq'):
-    """
-    Determine concentration from the relationship between the half mass and
-    virial radii.
-        rhalf : radius enclosing half the virial mass
-        rvir  : virial radius 
-        method: method used to solve for concentration (default = 'leastsq')
-          'leastsq'  : leastsq is used to solve the complete equation below
-          'lokas2001': leastsq is used to solve the simplified equation from 
-                       Lokas & Mammon (2001). Eqn. 28 in arxiv version.
-    0.5 = [ln(1+s*c)-sc/(1+s*c)]/[ln(1+c)-c/(1+c)], where s=rhalf/rvir
+    """Determine concentration from the relationship between the half mass and
+    virial radii:
+
+        0.5 = [ln(1+s*c)-sc/(1+s*c)]/[ln(1+c)-c/(1+c)], where s=rhalf/rvir
+
+    Args:
+        rhalf (float): Radius enclosing half the virial mass.
+        rvir (float): Virial radius.
+        method (Optional[str]): Method used to solve for concentration. 
+            (default = 'leastsq') Supported values include:
+                'leastsq'  : leastsq is used to solve the complete relationship.
+                'lokas2001': leastsq is used to solve the simplified 
+                    relationship from Lokas & Mammon (2001). Eqn. 28 in arxiv 
+                    version.
+
+    Returns:
+        float: Concentration.
+
+    Raises:
+        ValueError: If provided method is not supported.
+
     """
     from scipy.optimize import leastsq
     if method=='leastsq':
-        errfunc = lambda x: 0.5-(nfwgc(x*rhalf/rvir)/nfwgc(x))
+        errfunc = lambda x: 0.5-(_nfwgc(x*rhalf/rvir)/_nfwgc(x))
         c = leastsq(errfunc,x0=3.)[0][0]    
     elif method=='lokas2001':
         errfunc = lambda x: ((rhalf/rvir)-(0.6082-0.1843*np.log10(x)-0.1011*(np.log10(x)**2)+0.03918*(np.log10(x)**3)))
         c = leastsq(errfunc,x0=3.)[0][0]
     else:
-        raise Exception('Unsupported method: {}'.format(method))
+        raise ValueError('Unsupported method: {}'.format(method))
     return c
 
 def concen_vpeak(vpeak,vvir,method='prada2012'):
-    """
-    Calculate concentration based on relationship between peak and virial
-    velocities.
-        vpeak : peak circular velocity 
-        vvir  : circular velocity at virial radius
-        method: method used to solve for concentration (default = 'prada2012')
-          'prada2012': leastsq is used to solve the equation from Prada et al.
-                       (2012). Eqn. 9 in arxiv version.
-    vpeak/vvir = {0.216*c/[ln(1+c)-c/(1+c)]}**0.5
+    """Calculate concentration based on relationship between peak and virial
+    velocities:
+
+        vpeak/vvir = {0.216*c/[ln(1+c)-c/(1+c)]}**0.5
+
+    Args:
+        vpeak (float): Peak circular velocity.
+        vvir (float): Circular velocity at virial radius.
+        method (Optional[str]): Method used to solve for concentration. 
+            (default = 'prada2012') Supported values include:
+                'prada2012': leastsq is used to solve the equation from Prada 
+                    et al. (2012). Eqn. 9 in arxiv version.
+
+    Returns:
+        float: Concentration.
+
+    Raises:
+        ValueError: If provided method is not supported.
+
     """
     from scipy.optimize import leastsq
     if method == 'prada2012':
-        errfunc = lambda x: ((vpeak/vvir)-np.sqrt(0.216*x/nfwgc(x)))
+        errfunc = lambda x: ((vpeak/vvir)-np.sqrt(0.216*x/_nfwgc(x)))
         c = leastsq(errfunc,x0=3.)[0][0]
     else:
-        raise Exception('Unsupported method: {}'.format(method))
+        raise ValueError('Unsupported method: {}'.format(method))
     return c

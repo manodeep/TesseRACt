@@ -1,19 +1,40 @@
+#!/usr/bin/python
+"""
+io
+==
+
+This module provides the classes and methods necessary for reading and 
+writing files.
+
+Attributes:
+    _snapshot_formats (dict): Maps format codes to the correct snapshot class.
+
+"""
+
+# Standard packages
 import numpy as np
 import os
-from .
-
-# TODO:
-# - Gadget IO in vorovol
-# - Tipsy IO in vorovol
 
 # ------------------------------------------------------------------------------
 # LOGGING OF SNAPSHOT FORMATS
 _snapshot_formats = {}
 def register_snapshot_format(code):
-    """Decorator to register snapshot format classes"""
+    """Decorator to register snapshot format classes. 
+
+    Args:
+        code (int): Code that should be associated with the snapshot format
+            class being decorated.
+
+    Raises:
+        TypeError: If the class being decorated is not a subclass of the
+            `io.Snapshot` class.
+        Exception: If the provided code is already associated with an existing 
+            snapshot format class.
+
+    """
     def wrapper(f):
         if not issubclass(f,Snapshot):
-            raise Exception('Only Snapshot subclasses can be registered.')
+            raise TypeError('Only Snapshot subclasses can be registered.')
         if code in _snapshot_formats:
             raise Exception('Snapshot format code {} was already '.format(code)+
                             'assigned to {}. '.format(_snapshot_formats[code])+
@@ -25,7 +46,7 @@ def register_snapshot_format(code):
         return f
     return wrapper
 def display_snapshot_formats():
-    """Prints information on the registered snapshot formats"""
+    """Prints information on the registered snapshot formats."""
     print 80*'='
     print '{:4s}  {:20s}  {}'.format('code','name','description')
     print 80*'-'
@@ -37,7 +58,16 @@ def display_snapshot_formats():
 # ------------------------------------------------------------------------------
 # SUPPORTING IO OBJECTS/METHODS
 class cStructDict(object):
+    """Provides easy read/write of structured data to/from a dictionary."""
     def __init__(self,fields):
+        """Initialize object with specified fields.
+
+        Args: 
+            fields (List[tuple]): Each tuple contains the name and format of
+                field. The order of the tuples specifies the order that the 
+                fields should be read from or written to a file.
+
+        """
         self._fields = fields
         self._keys = []
         self._format_list = []
@@ -47,22 +77,49 @@ class cStructDict(object):
             self._format_list.append(f[1])
             self._format+=f[1]
     @property
-    def fields(self): return self._fields
+    def fields(self): 
+        """List of field (name,format) tuples."""
+        return self._fields
     @property
-    def keys(self): return self._keys
+    def keys(self): 
+        """List of field names."""
+        return self._keys
     @property
-    def format_list(self): return self._format_list
+    def format_list(self): 
+        """List of field format codes."""
+        return self._format_list
     @property
-    def format(self): return self._format
+    def format(self): 
+        """Format string for the entire data structure."""
+        return self._format
     @property
     def size(self):
+        """Size of the entire data structure in bytes."""
         if not hasattr(self,'_size'):
             import struct
             self._size = struct.calcsize(self.format)
         return self._size
     def read(self,fd):
+        """Reads one instance of data structure from a file.
+
+        Args:
+            fd (file): File that data structure should be read from.
+
+        Returns:
+            dict: Data structure with fields as key,value pairs.
+
+        """
         return self.unpack(fd.read(self.size))
     def unpack(self,string):
+        """Unpacks one instance of data structure from a string.
+
+        Args:
+            string (str): String that data structure should be unpacked from.
+
+        Returns:
+            dict: Data structure with fields as key,value pairs.
+
+        """
         import struct
         # Get list of values
         values = struct.unpack(self.format,string)
@@ -88,71 +145,109 @@ class cStructDict(object):
 # ------------------------------------------------------------------------------
 # GENERAL SNAPSHOT FILE HANDLING
 class Snapshot(object):
-    """Base class for snapshot formats"""
+    """Base class for snapshot formats."""
     @property
     def code(self):
+        """Integer code used to reference the snapshot format."""
         if not hasattr(self,'_code'):
             raise AttributeError('This snapshot type does not have a code.')
         return self._code
     def read(self,*args,**kwargs):
-        """Dummy read method to return error"""
+        """Dummy read method to return error."""
         raise Exception('This snapshot type does not have a read method.')
     def write(self,*args,**kwargs):
-        """Dummy write method to return error"""
+        """Dummy write method to return error."""
         raise Exception('This snapshot type does not have a write method.')
     def load(self,*args,**kwargs):
         """Alias for read."""
         return self.read(*args,**kwargs)
     def parse_voropar(self,param):
-        """
-        Default method for parsing vorovol parameters. Returns an empty
-        dictionary.
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class does not use 
+                any of the Vorovol parameters.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
         """
         return {}
 
 def read_snapshot(filename,format=0,**kwargs):
-    """
-    Read masses and positions from a snapshot.
-        filename: Full path to the file that should be read.
-        format  : Integer specifying the type of snapshot. See output from
-                  display_snapshot_formats for a description of the available 
-                  codes. (default = 0)
-    Additional keywords are passed to the appropriate method for reading.
+    """Read masses and positions from a snapshot.
+
+    Args:
+        filename (str): Full path to the file that should be read.
+        format (Optional[int]): Code for the type of snapshot. See output from
+            `display_snapshot_formats` for a description of the available 
+            codes. (default = 0)
+        **kwargs: Additional keywords are passed to the appropriate method for 
+            reading.
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+
+    Raises:
+        ValueError: If the format is not supported.
+
     """
     if format in _snapshot_formats:
         out = _snapshot_formats[format].read(filename,**kwargs)
     else:
-        raise Exception('No snapshot format registered with code '+
-                        '{}.'.format(format))
+        raise ValueError('No snapshot format registered with code '+
+                         '{}.'.format(format))
     return out
 
 def write_snapshot(filename,mass,pos,format=0,**kwargs):
-    """
-    Write masses and positions to a snapshot.
-        filename: Full path to the file that should be written.
-        format  : Integer specifying the type of snapshot. See output from
-                  display_snapshot_formats for a description of the available 
-                  codes. (default = 0)
-    Additional keywords are passed to the appropriate method for writing.
+    """Write particle masses and positions to a snapshot.
+
+    Args:
+        filename (str): Full path to the file that should be written.
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+        format (Optional[int]): Integer specifying the type of snapshot. See 
+            output from `display_snapshot_formats` for a description of the 
+            available codes. (default = 0)
+        **kwargs: Additional keywords are passed to the appropriate method for 
+            writing.
+
+    Raises:
+        ValueError: If the format is not supported.
+
     """
     if format in _snapshot_formats:
         out = _snapshot_formats[format].write(filename,mass,pos,**kwargs)
     else:
-        raise Exception('No snapshot format registered with code '+
-                        '{}.'.format(format))
+        raise ValueError('No snapshot format registered with code '+
+                         '{}.'.format(format))
     return out
 
 def convert_snapshot(filename1,format1,filename2,format2,
                      overwrite=False,**kwargs):
-    """
-    Convert one snapshot type into another. (The old snapshot is not removed.)
-        filename1: Full path to the source snapshot that should be read in.
-        format1  : Integer specifying snapshot type of filename1.
-        filename2: Full path to the destination snapshot that should be created.
-        format2  : Integer specifying snapshot type of filename2.
-        overwrite: Set to True if existing filename2 should be overwritten.
-                   (default = False)
-    Additional keywords are passed to the appropriate method for reading.
+    """Convert one snapshot type into another. The old snapshot is not removed. 
+
+    Args:
+        filename1 (str): Full path to the source snapshot that should be read.
+        format1 (int): Integer specifying snapshot type of filename1. See
+            output from `display_snapshot_formats` for a description of the 
+            available codes. 
+        filename2 (str): Full path to the destination snapshot that should be 
+            created.
+        format2 (int): Integer specifying snapshot type of filename2. See
+            output from `display_snapshot_formats` for a description of the 
+            available codes. 
+        overwrite (Optional[bool]): Set to True if existing filename2 should be 
+            overwritten. (default = False)
+        **kwargs: Additional keywords are passed to the appropriate method for 
+            reading.
+
+    Raises:
+        Exception: If `filename2` exists and `overwrite` is False.
+
     """
     # Prevent overwrite
     if os.path.isfile(filename2) and not overwrite:
@@ -168,32 +263,57 @@ def convert_snapshot(filename1,format1,filename2,format2,
 # F77 UNFORMATED BINARY SNAPSHOT FORMAT
 @register_snapshot_format(0)
 class UnformattedBinary(Snapshot):
-    """Unformatted Fortran 77 Binary"""
+    """Unformatted f77 binary snapshot class."""
     def read(self,*args,**kwargs):
+        """See `io.read_unfbi77`."""
         return read_unfbi77(*args,**kwargs)
     def write(self,*args,**kwargs):
+        """See `write_unfbi77`."""
         return write_unfbi77(*args,**kwargs)
     def parse_voropar(self,param):
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class performs the
+                following parameter to keyword mappings:
+                    Unfbi77ArrayType -> dtype (str): Array data type.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
+        """
         kwargs = {}
         if 'Unfbi77ArrayType' in param:
             kwargs['dtype'] = param['Unfbi77ArrayType']
         return kwargs
 
 def read_unfbi77(filename,return_npart=False,dtype='float32'):
-    """
-    Read unformatted f77 binary snapshot.
-        filename    : Full path to file that should be read.
-        return_npart: If True, only the number of particles is read from the 
-                      file (default = False).
-        dtype       : Data type of the mass and postion arrays in the snapshot. 
-                      vorovol currently only reads in float32 arrays. 
-                      (default = 'float32')
+    """Read unformatted f77 binary snapshot.
+
+    Args:
+        filename (str): Full path to file that should be read.
+        return_npart (Optional[bool]): If True, only the number of particles 
+            is read from the file (default = False).
+        dtype (str): Data type of the mass and postion arrays in the snapshot. 
+            vorovol currently only reads in float32 arrays. 
+            (default = 'float32')
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+    Raises:
+        TypeError: If a type other than `np.float32` is provided.
+        IOError: If the 4 bytes before any block does not match the size of the
+            block that is read in.
+
     """
     import struct
     # Check data type
     dtype = np.dtype(dtype)
     if dtype!=np.dtype('float32'):
-        raise Exception("vorvol assumes arrays are 32-bit floats.")
+        raise TypeError("vorvol assumes arrays are 32-bit floats.")
     # Open file
     fd = open(filename,'rb')
     # Read in number of particles
@@ -234,7 +354,19 @@ def read_unfbi77(filename,return_npart=False,dtype='float32'):
     return mass,pos
 
 def write_unfbi77(filename,mass,pos,overwrite=False):
-    """Write unformated f77 binary snapshot"""
+    """Write unformated f77 binary snapshot.
+
+    Args:
+        filename (str): Full path to file that data should be written to.
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+        overwrite (Optional[bool]): If True and `filename` already exists, it 
+            is overwritten. (default = False)
+
+    Raises:
+        TypeError: If mass or pos does not have a data type of float32.
+
+    """
     import struct
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
@@ -244,7 +376,7 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
     # Check data type
     dtype = np.dtype('float32')
     if mass.dtype!=dtype or pos.dtype!=dtype:
-        raise Exception("vorvol assumes arrays are 32-bit floats.")
+        raise TypeError("vorvol assumes arrays are 32-bit floats.")
     # Open file
     fd = open(filename,'wb')
     # Write number of particles
@@ -278,6 +410,26 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
 class Gadget2(Snapshot):
     """Gadget2 Type 1 Snapshot"""
     def read(self,*args,**kwargs):
+        """Reads data from a Gadget snapshot.
+        
+        Args:
+            format (Optional[int]): Format code specifying what format the 
+                Gadget snapshot is in. This code determines what function any 
+                additional keywords are passed to. (default = 1) Currently 
+                supported values include:
+                    1: See `io.read_gadget2_binary1` for details.
+            *args: Additional arguments are passed to the appropriate method.
+            *kwargs: Additional keyword arguments are passed to the appropriate 
+                method.
+
+        Returns:
+            mass (np.ndarray): (N,) Particle masses.
+            pos (np.ndarray): (N,3) Particle positions.
+
+        Raises:
+            ValueError: If specified format is not supported.
+
+        """
         format = kwargs.pop('format',1)
         # Simple binary format
         if format == 1:
@@ -295,6 +447,18 @@ class Gadget2(Snapshot):
             raise ValueError('{} is not a valid Gadget-2 '.format(format)+
                              'snapshot format.')
     def parse_voropar(self,param):
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class performs the
+                following parameter to keyword mappings:
+                    ParticleType -> ptype (int): Particle type.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
+        """
         kwargs = {}
         if 'ParticleType' in param:
             kwargs['ptype'] = param['ParticleType']
@@ -302,19 +466,46 @@ class Gadget2(Snapshot):
 
 def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
                          return_header=False):
-    """Read Gadget binary files"""
+    """Read Gadget binary files.
+
+    Args:
+        filename (str): Full path to file that should be read.
+        ptype (Optional[int,list,tuple,np.ndarray]): Code, or series of codes
+            specifying what particle type should be loaded. Supported values 
+            include:
+               -1: All particles
+                0: Gas particles
+                1: Dark matter particles
+                2: Disk particles
+                3: Bulge particles
+                4: Star particles
+                5: Boundary particles
+        return_npart (Optional[bool]): If True, only the number of particles 
+            is read from the file (default = False).
+        return_header (Optional[bool]): If True, only the file header is read
+            from the file (default = False).
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+    Raises:
+        TypeError: If `ptype` is not an integer or series of integers.
+        IOError: If file is not read propertly.
+
+    """
     # Set list of particle types
     if isinstance(ptype,int):
         if ptype in range(6):
             typelist = np.array([ptype])
         else:
             typelist = np.arange(6)
-    elif isinstance(ptype,list):
+    elif isinstance(ptype,(list,tuple)):
         typelist = np.array(ptype)
     elif isinstance(ptype,np.ndarray):
         pass
     else:
-        raise ValueError('Unrecognized value for ptype: {}'.format(ptype))
+        raise TypeError('Unrecognized value for ptype: {}'.format(ptype))
     # Check for multiple files
     if os.path.isfile(filename):
         try:
@@ -435,6 +626,7 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
     return mass,pos
 
 class GadgetHeaderStruct(cStructDict):
+    """Gadget2 header structure."""
     # Sice should be 256
     def __init__(self):
         fields = [('npart'            ,'IIIIII'),
@@ -464,19 +656,46 @@ class GadgetHeaderStruct(cStructDict):
 # BUILDGAL TREEBI FILES
 @register_snapshot_format(2)
 class BuildgalTreebi(Snapshot):
-    """Buildgal TREEBI File"""
+    """Buildgal TREEBI snapshot."""
     def read(self,*args,**kwargs):
+        """See `io.read_bgtreebi`."""
         return read_bgtreebi(*args,**kwargs)
     def write(self,*args,**kwargs):
+        """See `io.write_bgtreebi`."""
         return write_bgtreebi(*args,**kwargs)
     def parse_voropar(self,param):
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class performs the
+                following parameter to keyword mappings:
+                    BgTreebiNskip -> nskip (int): Number of particles to skip.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
+        """
         kwargs = {}
         if 'BgTreebiNskip' in param:
             kwargs['nskip'] = param['BgTreebiNskip']
         return kwargs
 
 def read_bgtreebi(filename,nskip=0,return_npart=False):
-    """Read Buildgal TREEBI files"""
+    """Read Buildgal TREEBI snapshots.
+
+    Args:
+        filename (str): Full path to file that should be read.
+        nskip (Optional[int]): Number of particles that should be skipped over 
+            at the beginning of the file. (default = 0)
+        return_npart (Optional[bool]): If True, only the number of particles 
+            is read from the file. (default = False)
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+    """
     fd = open(filename,'r')
     # Read in header
     headline = fd.readline().strip()
@@ -505,7 +724,19 @@ def read_bgtreebi(filename,nskip=0,return_npart=False):
     return mass[nskip:],pos[nskip:,:]
 
 def write_bgtreebi(filename,mass,pos,overwrite=False):
-    """Write Buildgal TREEBI files"""
+    """Write Buildgal TREEBI snapshot.
+
+    Args:
+        filename (str): Full path to file that data should be written to.
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+        overwrite (Optional[bool]): If True and `filename` already exists, it 
+            is overwritten. (default = False)
+
+    Raises:
+        Exception: If the sizes of `mass` and `pos` do not agree.
+
+    """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
         print 'Specified file already exists and overwrite not set.'
@@ -539,8 +770,21 @@ def write_bgtreebi(filename,mass,pos,overwrite=False):
 class Bgc2HaloCatalogue(Snapshot):
     """BGC2 Halo Catalogue"""
     def read(self,*args,**kwargs):
+        """See `io.read_bgc2halo`."""
         return read_bgc2halo(*args,**kwargs)
     def parse_voropar(self,param):
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class performs the
+                following parameter to keyword mappings:
+                    Bgc2HaloId -> haloid (int): Halo ID.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
+        """
         kwargs = {}
         if 'Bgc2HaloId' in param:
             kwargs['haloid'] = param['Bgc2HaloId']
@@ -548,7 +792,27 @@ class Bgc2HaloCatalogue(Snapshot):
 
 
 def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
-    """Read BGC2 halo catalogue"""
+    """Read BGC2 halo catalogue.
+
+    Args:
+        filename (str): Full path to file that should be read.
+        haloid (Optional[int]): ID of halo that should be loaded. If -1, all 
+            particles are loaded. (default = -1)
+        return_npart (Optional[bool]): If True, only the number of particles 
+            is read from the file (default = False).
+        return_header (Optional[bool]): If True, only the file header is read
+            from the file (default = False).
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+    Raises:
+        IOError: If file cannot be read correctly.
+
+    .. todo:: preallocate groups
+
+    """
     import re,struct
     # Get base file name
     idxext = filename0.rindex('.')-5
@@ -584,7 +848,7 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
     # Loop over files, reading in group info
     nfiles = header['num_files']
     nout = 0 ; ng = 0 ; gtot = 0
-    groups = [] # TODO: This is very bad, pre-allocate!!!!
+    groups = [] 
     #    groups = header['ngroups_total']*[0]
     for i in range(nfiles):
         # Open the right file
@@ -684,6 +948,7 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
     return mass,pos
 
 class Bgc2HeaderStruct(cStructDict):
+    """BGC2 header structure"""
     # Size should be 1024
     def __init__(self):
         fields = [('magic'            ,'Q'), # A magic number to identify this as a BGC file.
@@ -719,6 +984,7 @@ class Bgc2HeaderStruct(cStructDict):
         super(Bgc2HeaderStruct,self).__init__(fields)
 
 class Bgc2GroupStruct(cStructDict):
+    """BGC2 group structure"""
     def __init__(self,struct_type):
         fields = None
         # GDATA_FORMAT_ID
@@ -748,6 +1014,7 @@ class Bgc2GroupStruct(cStructDict):
         super(Bgc2GroupStruct,self).__init__(fields)
 
 class Bgc2PartStruct(cStructDict):
+    """BGC2 particle structure"""
     def __init__(self,struct_type):
         fields = None
         # PDATA_FORMAT_NULL = 0,
@@ -792,9 +1059,22 @@ class Bgc2PartStruct(cStructDict):
 @register_snapshot_format(4)
 class Tipsy(Snapshot):
     """Tipsy Snapshot"""
-    # def read(self,*args,**kwargs):
-    #     return read_tipsy(*args,**kwargs)
+    def read(self,*args,**kwargs):
+        """See `io.read_tipsy`."""
+        return read_tipsy(*args,**kwargs)
     def parse_voropar(self,param):
+        """Maps Vorovol parameters onto input keywords for this class's 
+        read/write methods.
+
+        Args:
+            param (dict): Vorovol parameters. This snapshot class performs the
+                following parameter to keyword mappings:
+                    ParticleType -> ptype (int): Particle type.
+
+        Returns:
+            dict: Keyword arguments for this class's read/write methods.
+
+        """
         kwargs = {}
         if 'ParticleType' in param:
             kwargs['ptype'] = param['ParticleType']
@@ -802,20 +1082,49 @@ class Tipsy(Snapshot):
 
 def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
                dtype_pos='f',dtype_vel='f'):
-    """Read a Tipsy snapshot"""
-    pstructs = [TipsyPartStructGas(),TipsyPartStructDM(),TipsyPartStructStar()]
+    """Read a Tipsy snapshot.
+
+    Args:
+        filename (str): Full path to file that should be read.
+        ptype (Optional[int]): Code specifying what particle type should be 
+            loaded. Supported values include:
+               -1: All particles
+                0: Gas particles
+                1: Dark matter particles
+                2: Star particles
+        return_npart (Optional[bool]): If True, only the number of particles 
+            is read from the file (default = False).
+        return_header (Optional[bool]): If True, only the file header is read
+            from the file (default = False).
+        dtype_pos (Optional[str]): Format code for particle positions. 
+            (default = 'f')
+        dtype_vel (Optional[str]): Format code for particle velocities.
+            (default = 'f')
+
+    Returns:
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+
+    Raises:
+        TypeError: If `ptype` is not an integer or series of integers.
+        IOError: If particle numbers in header do not match.
+
+    """
+    pstructs = [TipsyPartStructGas(dtype_pos=dtype_pos,dtype_vel=dtype_vel),
+                TipsyPartStructDM(dtype_pos=dtype_pos,dtype_vel=dtype_vel),
+                TipsyPartStructStar(dtype_pos=dtype_pos,dtype_vel=dtype_vel)]
     # Set list of particle types
     if isinstance(ptype,int):
         if ptype in range(3):
             typelist = np.array([ptype])
         else:
             typelist = np.arange(3)
-    elif isinstance(ptype,list):
+    elif isinstance(ptype,(list,tuple)):
         typelist = np.array(ptype)
     elif isinstance(ptype,np.ndarray):
         pass
     else:
-        raise ValueError('Unrecognized value for ptype: {}'.format(ptype))
+        raise TypeError('Unrecognized value for ptype: {}'.format(ptype))
     # Open file
     fd = open(filename,'rb')
     # Read header
@@ -856,6 +1165,7 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
     return mass,pos
 
 class TipsyHeaderStruct(cStructDict):
+    """Tipsy header structure"""
     # Size should be 28
     def __init__(self):
         fields = [('time'            ,'d'), 
@@ -864,6 +1174,7 @@ class TipsyHeaderStruct(cStructDict):
                   ('npart'           ,'iii')]
         super(TipsyHeaderStruct,self).__init__(fields)
 class TipsyPartStructGas(cStructDict):
+    """Tipsy gas particle structure"""
     def __init__(self,dtype_pos='f',dtype_vel='f'):
         fields = [('mass'  ,'f'        ),
                   ('pos'   ,3*dtype_pos),
@@ -874,6 +1185,7 @@ class TipsyPartStructGas(cStructDict):
                   ('phi'   ,'f'        )]
         super(TipsyPartStructGas,self).__init__(fields)
 class TipsyPartStructDM(cStructDict):
+    """Tipsy dark matter particle structure"""
     def __init__(self,dtype_pos='f',dtype_vel='f'):
         fields = [('mass'  ,'f'        ),
                   ('pos'   ,3*dtype_pos),
@@ -882,6 +1194,7 @@ class TipsyPartStructDM(cStructDict):
                   ('phi'   ,'f'        )]
         super(TipsyPartStructDM,self).__init__(fields)
 class TipsyPartStructStar(cStructDict):
+    """Tipsy star particle structure"""
     def __init__(self,dtype_pos='f',dtype_vel='f'):
         fields = [('mass'  ,'f'        ),
                   ('pos'   ,3*dtype_pos),
