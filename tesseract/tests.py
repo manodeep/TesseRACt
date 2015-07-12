@@ -34,11 +34,6 @@ Attributes:
 
 """
 
-# TODO:
-# - only accept errors for vornoi in run_test
-# - allow unequal central densities in make_substr
-# - outputdir confusing
-
 # Standard packages
 import numpy as np
 import os,copy
@@ -977,6 +972,9 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
     Raises:
         ValueError: If the snapfile provided does not exist and there is not 
             a way to create it (Only substructure snapfiles can be created).
+
+    .. todo:: only accept errors for vornoi in run_test
+
     """
     # Get parameters
     param = param_test(idstr=idstr,prefix=prefix,filename=parfile,snapfile=snapfile,
