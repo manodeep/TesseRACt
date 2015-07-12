@@ -20,15 +20,14 @@ Attributes:
     _paramlist (list): Required vorovol parameters.
     _paramopt (list): Optional vorovol parameters.
 
+.. todo:: suppress vorovol output from qhull 
+
 """
 
 import os,pickle
 import numpy as np
 from . import util
 from . import config,config_parser,_config_file_usr
-# TODO: 
-# - Remove Mscl & Rscl from get_nfw?
-# - suppress vorovol output from qhull
 
 _installdir = os.path.dirname(os.path.realpath(__file__))
 _installdir_vorvol = os.path.join(_installdir,'vorovol')
@@ -79,15 +78,28 @@ _paramopt = ['NumDivide','OutputAdjacenciesOn','MaxNumSnapshot',
              'DecimateInputBy','SquishY','SquishZ',
              'ParticleType','BgTreebiNskip','Bgc2HaloId']
 
-def tessellate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
-    """
-    Returns the tesselation volumes for a set of particle masses and positions
-    by creating the necessary files in the current working directory.
-        mass   : (N,1) array of particle masses.
-        pos    : (N,3) array of particle positions.
-        runtag : String identifying the run. This will be used to create the 
-                 necessary file names (default = 'test')
-    Additional keywords are passed to 'run'.
+def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
+    """Returns the tesselation volumes for a set of particle masses and 
+    positions by creating the necessary files in the current working directory.
+    This function only serves as a shortcut for actually importing the c 
+    library for tessellation.
+
+    Args:
+        pos (np.ndarray): (N,3) array of particle positions.
+        mass (Optional[np.ndarray]): (N,1) array of particle masses to write to
+            the snapshot. If not provided, masses are all set to 1.
+        runtag (Optional[str]): String identifying the run. This will be used 
+            to create the necessary file names. (default = 'test')
+        parfile (Optional[str]): Name of parameter file that should be read or
+            created.
+        **kwargs: Additional keywords are passed to `voro.run`.
+
+    Returns:
+        np.ndarray: (N,) array of particle volumes.
+
+    Raises:
+        Exception: If vorovol does not run successfully.
+
     """
     rundir = os.path.join(os.getcwd(),runtag)
     if not os.path.isdir(rundir):
@@ -106,13 +118,29 @@ def tessellate_dirty(mass,pos,runtag='test',parfile=None,**kwargs):
         print 'Snapshot already exists. Using it.'
     else:
         from . import io
+        if isinstance(mass,type(None)):
+            mass = np.ones(pos.shape[0],dtype=float)
         io.write_snapshot(snapfile,mass,pos,format=param['PositionFileFormat'])
+    # Run vorovol
+    code = run(parfile,**kwargs)
+    # Load volumes
+    volfile = namefile('vols',param)
+    if code == 0:
+        return read_volume(volfile)
+    else:
+        raise Exception('Tessellation fails. Error code = {}'.format(code))
 
 # ------------------------------------------------------------------------------
 # PYTHON WRAPPERS FOR C FUNCTIONS
-def tessellate(pos):
-    """
-    Run tessellation without output to file.
+def _tessellate(pos):
+    """Run tessellation directly using c library. 
+    
+    Args:
+        pos (np.ndarray): (N,3) array of particle positions.
+
+    Returns:
+        np.ndarray: (N,) array of particle volumes.
+
     """
     import ctypes
     from ctypes.util import find_library
@@ -130,21 +158,33 @@ def tessellate(pos):
 # METHODS FOR INTERFACING WITH THE VOROVOL ROUTINE
 def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
         recompile=False):
-    """
-    Runs vorovol on the designated parameter file, compiling first if necessary.
-    A non-zero return code refers to an error generated while running vorovol.
-        parfile  : path to vorovol parameter file or a dictionary of parameters
-                   that should be written to a file. Note: one of the keys can
-                   be 'parfile' and contain the parameter file path. If it is
-                   not, a generic parameter file named 'voro.param' is created.
-        exefile  : path to vorovol executable file
-        outfile  : path to file where output from vorovol should be piped. If 
-                   not provided, output will be printed to the screen.
-        overwrite: if true, the executable is run even if output for this
-                   run already exists. (default = False)
-        verbose  : if true, the run prints out information. (default = True)
-        recompile: if true, the executable is compiled even if it exists.
-                   (default = True)
+    """Runs vorovol on the designated parameter file. If necessary, vorovol will
+    be compiled first.
+    
+    Args:
+        parfile0 (str): Path to vorovol parameter file or a dictionary of 
+            parameters that should be written to a file. Note: one of the keys 
+            can be 'parfile' and contain the parameter file path. If it is
+            not, a generic parameter file named 'voro.param' is created.
+        exefile (Optional[str]): Path to vorovol executable file. If not 
+            provided, `_execfile_vorovol` is used.
+        outfile (Optional[str]): Path to file where output from vorovol should 
+            be piped. If not provided, output will be printed to the screen.
+        overwrite (Optional[bool]): If true, the executable is run even if 
+            output for this run already exists. (default = False)
+        verbose (Optional[bool]): If true, the run prints out information. 
+            (default = True)
+        recompile (Optional[bool]): If true, the executable is compiled even if 
+            it exists. (default = True)
+
+    Returns:
+        code (int): Non-zero codes refer to an error generated while running
+            vorovol. 
+        .. todo:: description of common errors in run
+
+    Raises:
+        ValueError: If parfile does not exist.
+
     """
     # Set defaults and allow for parfile or parameters
     if exefile is None: exefile = _execfile_vorovol
@@ -156,7 +196,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     else:
         parfile = parfile0
         if not os.path.isfile(parfile):
-            raise Exception('Parameter file does not exist: {}'.format(parfile))
+            raise ValueError('Parameter file does not exist: {}'.format(parfile))
         else:
             param = read_param(parfile)
     # Check for output
@@ -191,16 +231,23 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     return code
 
 def make(makefile,product=None,target='all'):
-    """
-    Compiles an application using a Makefile.
-        makefile: path to Makefile
-        product : path to product to check for successful make
-        target  : make target (default = 'all')
+    """Compiles an application using a Makefile.
+    
+    Args:
+        makefile (str): Path to Makefile that should be invoked.
+        product (Optional[str]): Path to product to check for successful make.
+            If not provided, no check is done.
+        target (Optional[str]): Make target. (default = 'all')
+
+    Raises:
+        ValueError: If makefile does not exist.
+        Exception: If product provided is not created.
+
     """
     # Set default makefile & check that it exists
     makefile = os.path.expanduser(makefile)
     if not os.path.isfile(makefile):
-        raise Exception('Makefile does not exists: {}'.format(makefile))
+        raise ValueError('Makefile does not exists: {}'.format(makefile))
     # Record current working directory then move to executable directory
     curdir = os.getcwd()
     os.chdir(os.path.dirname(makefile))
@@ -214,8 +261,15 @@ def make(makefile,product=None,target='all'):
     return
 
 def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
-    """
-    Compiles vorovol executable using a Makefile.
+    """Compiles vorovol executable using a Makefile. If the necessary qull
+    library does not exist, it is also compiled.
+
+    Args:
+        makefile (Optional[str]): Path to vorovol Makefile. If not provided,
+            `_makefile_vorovol` is used.
+        makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
+            provided, `_makefile_qhull` is used.
+
     """
     # Check for required qhull library
     execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
@@ -225,8 +279,17 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
     return
 
 def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
-    """
-    Compiles vorovol library and turns it into a shared library.
+    """Compiles vorovol library and turns it into a shared library. First
+    compiles necessary qhull library.
+
+    Args:
+        lib (str): Name of shared library that should be created (including the
+            '.so' extension).
+        makefile (Optional[str]): Path to vorovol Makefile. If not provided, 
+            `_makefile_vorovol` is used.
+        makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
+            provided, `_makefile_qhull` is used.
+
     """
     # Check for required qhull library
     execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
@@ -241,8 +304,12 @@ def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
     return
 
 def make_qhull(makefile=_makefile_qhull):
-    """
-    Compiles qhull libraries using a Makefile.
+    """Compiles qhull libraries using a Makefile.
+
+    Args:
+        makefile (Optional[str]): Path to qhull Makefile. If not provided,
+            `_makefile_qhull` is used.
+    
     """
     make(makefile,product=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
     return
@@ -250,12 +317,21 @@ def make_qhull(makefile=_makefile_qhull):
 # ------------------------------------------------------------------------------
 # METHODS FOR HANDLING VOLUME FILES
 def namefile(name,param):
-    """
-    Returns filename of voronoi output file
-        name : string specifying the type of file (part,vols,adjs)
-               Note: Adjacencies will only be output if OutputAdjacenciesOn 
-               is 1 in the parameter file.
-        param: vorovol parameters
+    """Returns filename of voronoi output file based on parameters.
+    
+    Args:
+        name (str): The type of file ('part','vols','adjs')
+            Note: Adjacencies will only be output if OutputAdjacenciesOn 
+            is 1 in the parameter file.
+        param (dict): vorovol parameters
+
+    Returns:
+        str: Full path to specified output file for the given parameters.
+
+    Raises:
+        ValueError: If `name` is 'adjs' and OutputAdjacenciesOn is not 1.
+        ValueError: If `name` is not one of 'part', 'vols', or 'adjs'.
+
     """
     # Parse name
     listnames = ['part','vols']
@@ -263,10 +339,10 @@ def namefile(name,param):
         listnames.append('adjs')
     else:
         if name=='adjs':
-            raise Exception('The output from this run does/will not contain adjacencies. \n'+
+            raise ValueError('The output from this run does/will not contain adjacencies. \n'+
                             'Set OutputAdjacenciesOn to 1 in the parameter file.')
     if name not in listnames:
-        raise Exception('Valid output file names include: {}'.format(listnames))
+        raise ValueError('Valid output file names include: {}'.format(listnames))
     # Base filename and directory
     fdir = os.path.join(param['OutputDir'],name)
     fnam = param['FilePrefix']
@@ -287,40 +363,40 @@ def namefile(name,param):
         ext = '.*' # These files have 00.00.00 format, numbers depend on split
     else:
         ext = ''
-    return os.path.join(fdir,'{}{}.{}{}'.format(fnam,param['FileSuffix'],name,ext))
-
-def write_snapshot(param,mass,pos,overwrite=False,**kwargs):
-    """
-    Writes a position file. 
-        param    : Dictionary of vorovol parameters or path to parameter file
-                   containing them. This includes information on the name of the
-                   file ('PositionFile') and the format of the file 
-                   ('PositionFileFormat').
-        mass     : (N,) array of particle masses
-        pos      : (N,3) array of particle positions
-        overwrite: If True, the existing position file is overwritten.   
-    Additional keywords are passed to the appropriate write function.
-    """
-    from . import io
-    # Read parameters if its a string
-    if isinstance(param,dict): pass
-    elif isinstance(param,str):
-        param = read_param(param)
-    else:
-        raise Exception('Invalid parameter type: {}.'.format(type(param))+
-                        'Must be a dictionary or path to a parameter file.')
+    return os.path.join(fdir,'{}{}.{}{}'.format(fnam,param['FileSuffix'],
+                                                name,ext))
 
 def read_snapshot(param,return_npart=False,center=False,**kwargs):
     """
-    Read position file. Downsample and performing volume preserving 
+    Read position file, downsample, performing volume preserving 
     transformation based on parameters. (This replicates what vorovol does when
     it loads snapshots.)
-        param       : Dictionary of vorovol parameters or path to parameter 
-                      file containing them.
-        return_npart: Set to True if only the number of particles in the 
-                      snapshot should be returned. (default = False)
-    Additional keywords are passed to the appropriate method for reading the
-    PositionFileFormat specified in the parameters.
+
+    Args:
+        param (dict): vorovol parameters or path to parameter file containing
+            them. This includes information on the name (PositionFile) and 
+            format (PositionFileFormat) of the file that will be written.
+        return_npart (Optional[bool]): Set to True if only the number of 
+            particles in the snapshot should be returned. (default = False)
+        center (Optional[array,str]): 3 element array specifying where 
+            particles should be recentered or a string specifying what method
+            should be used to center the particles. Supported methods include:
+                'com': center of mass
+        **kwargs: Additional keywords are passed to the appropriate method for 
+            reading the PositionFileFormat specified in the parameters.
+
+    Returns:
+        mass (np.ndarray): (N,) array of particle masses.
+        pos (np.ndarray): (N,3) array of particle positions.
+
+    Raises:
+        TypeError: If param is not a dictionary or path.
+        ValueError: If PositionFileFormat is not in io._snapshot_formats.
+        Exception: If downsampling does not yield the expected number of 
+            particles.
+        TypeError: If center is not a 3 element array, list, tuple or one of
+            the supported strings.
+
     """
     from . import io
     # Read parameters if its a string
@@ -328,7 +404,7 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
     elif isinstance(param,str):
         param = read_param(param)
     else:
-        raise Exception('Invalid parameter type: {}.'.format(type(param))+
+        raise TypeError('Invalid parameter type: {}.'.format(type(param))+
                         'Must be a dictionary or path to a parameter file.')
     # Get necessary parameters
     filename = param['PositionFile']
@@ -337,8 +413,8 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
     if format in io._snapshot_formats:
         kwargs.update(**io._snapshot_formats[format].parse_voropar(param))
     else:
-        raise Exception('There is not a snapshot type associated with the '+
-                        'format code {} in io.py'.format(format))
+        raise ValueError('There is not a snapshot type associated with the '+
+                         'format code {} in io.py'.format(format))
     # Load masses and positions
     kwargs.update(format=format,return_npart=return_npart)
     out = io.read_snapshot(filename,**kwargs)
@@ -376,14 +452,24 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
         elif isinstance(center,str) and center in ['com','mass']:
             com = np.dot(pos.T,mass)/mass.sum()
         else:
-            raise ValueError('Unknown center: {}'.format(center))
+            raise TypeError('Unknown center: {}'.format(center))
         for i in range(3):
             pos[:,i]-= com[i]
     # Return
     return mass,pos
 
 def read_volume(filename):
-    """Reads vorovol volume file"""
+    """Reads vorovol volume file.
+
+    Args:
+        filename (str): Path to volume file that should be read.
+
+    Returns:
+        vols (np.ndarray): (N,) array of volumes associated with particles. 
+            Negative values indicate that the volume is infinite (this occurs 
+            at edges).
+
+    """
     import struct
     # Read in volumes
     fd = open(filename,"rb")
@@ -394,7 +480,15 @@ def read_volume(filename):
     return vols
 
 def write_volume(filename,vols,overwrite=False):
-    """Writes vorovol volume file"""
+    """Writes vorovol volume file.
+
+    Args:
+        filename (str): Path to volume file that volumes should be written to.
+        vols (np.ndarray): (N,) array of volumes associated with particles. 
+        overwrite (Optional[bool]): If True, any existing file at the 
+            specified location will be overwritten. (default = False)
+
+    """
     import struct
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
@@ -412,52 +506,68 @@ def write_volume(filename,vols,overwrite=False):
 # METHODS FOR INTERFACING WITH PARAMETER FILES
 def make_param(filename,basefile=None,overwrite=False,**kwargs):
     """
-    Create vorovol parameter file
-        filename : path to file where parameters should be saved
-        basefile : path to parameter file that new file should be created from
-                   (default = None, file is created from scratch and all 
-                   required fields must be provided)
-        overwrite: if True, existing file is replaced (default = False)
-        Additional keywords are parameter fields including:
-        FilePrefix          : Prefix to add to file names
-        FileSuffix          : Suffix to add to end of file names (this can be a
-                              C style format code if position file refers to 
-                              multiple snapshots)
-        NumDivide           : Number of times snapshot is divided
-        PeriodicBoundariesOn: Set to 1 if snapshot is periodic
-        Border              : Border added to edge of boxes
-        BoxSize             : Size of periodic box
-        PositionFile        : Path to file containing positions (this can 
-                              contain a C style format code in order to refer
-                              to multiple snapshot with the same naming scheme)
-        PositionFileFormat  : Integer specifying position file format
-         -1: Pre-existing vorovol parts file
-          0: f77 unformatted binary snapshot
-          1: Gadget snapshot
-          2: Buildgal TREEBI files
-          3: BGC2 halo catalogue
-        ParticleType  : Integer particle type. 
-         -1: all particles
-         For gadget snapshots
-          0: gas particles
-          1: dark matter particles
-          2: disk particles
-          3: bulge particles
-          4: star particles
-          5: boundary particles, but why?
-         For tipsy snapshots
-          0: gas particles
-          1: dark matter particles
-          2: star particles
-        BgTreebiNskip       : Number of particles to skip in TREEBI snapshot
-        Bgc2HaloId          : ID number of halo in Bgc2 catalogue
-        OutputDir           : Path to directory where output should be saved
-        OutputAdjacenciesOn : Set to 1 to also output adjacencies info
-        DecimateInputBy     : >1 factor to decimate particle number by
-        MaxNumSnapshot      : Maximum number of snapshot to do (only invoked if
-                              FileSuffix contains a format code)
-        SquishY             : factor to squish Y coords (preserves volume)
-        SquishZ             : factor to squish Z coords (preserves volume)
+    Create vorovol parameter file.
+
+    Args:
+        filename (str): Path to file where parameters should be saved.
+        basefile (Optional[str]): Path to parameter file that new file should 
+            be created from. If not provided, the file is created from scratch 
+            and all required fields must be provided.
+        overwrite (Optional[bool]): if True, existing file is replaced. 
+            (default = False)
+        **kwargs: Additional keywords are parameter fields including:
+            FilePrefix (str): Prefix to add to file names
+            FileSuffix (str): Suffix to add to end of file names (this can be a
+                C style format code if position file refers to multiple 
+                snapshots).
+            NumDivide (int): Number of times snapshot is divided.
+            PeriodicBoundariesOn (int): Set to 1 if snapshot is periodic.
+            Border (float): Border added to edge of boxes.
+            BoxSize (float): Size of periodic box.
+            PositionFile (str): Path to file containing positions This can 
+                contain a C style format code in order to refer to multiple 
+                snapshots with the same naming scheme.
+            PositionFileFormat (int): Code specifying what format the snapshot
+                is in. Valid values include:
+                   -1: Pre-existing vorovol parts file
+                    0: f77 unformatted binary snapshot
+                    1: Gadget snapshot
+                    2: Buildgal TREEBI files
+                    3: BGC2 halo catalogue
+            ParticleType (int): Code specifying what particle type should be
+                loaded from the snapshot. This is only used if 
+                PositionFileFormat is 1 (Gadget snapshot) or 4 (Tipsy snapshot). 
+                If equal to -1, all particles are loaded. Value values for 
+                Gadget snapshots include:
+                    0: gas particles
+                    1: dark matter particles
+                    2: disk particles
+                    3: bulge particles
+                    4: star particles
+                    5: boundary particles, but why would you do that?
+                Valid values for Tipsy snapshots include:
+                    0: gas particles
+                    1: dark matter particles
+                    2: star particles
+            BgTreebiNskip (int): Number of particles to skip in TREEBI snapshot.
+                This is useful if you know first few particles are part of a 
+                disk that you want to discard.
+            Bgc2HaloId (int): ID number of halo in Bgc2 catalogue. -1 loads all
+                particle info.
+            OutputDir (str): Path to directory where output should be saved.
+            OutputAdjacenciesOn (int): Set to 1 to also output adjacencies info.
+            DecimateInputBy (int): >1 factor to decimate particle number by for 
+                scaling tests and getting a quick peek at large particle sets.
+            MaxNumSnapshot (int): Maximum number of snapshot to do (only invoked 
+                if FileSuffix contains a format code).
+            SquishY (float): Factor to squish Y coords (preserves volume).
+            SquishZ (float): Factor to squish Z coords (preserves volume).
+
+    Returns:
+        dict: Contains values for the parameters listed above that were saved 
+            to the file. If the file already exists and overwrite is not set,
+            these will be the parameters loaded form the existing file.
+
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
@@ -482,11 +592,17 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
     return param
 
 def write_param(filename,param,overwrite=False):
-    """
-    Writes vorovol parameter file
-        filename : path to file where parameters should be written
-        param    : dictionary of parameters to write
-        overwrite: if True, existing file is replaced (default = False)
+    """Writes vorovol parameter file.
+
+    Args:
+        filename (str): Path to file where parameters should be written.
+        param (dict): Parameters to write to file.
+        overwrite (Optional[bool]): If True, existing file is replaced 
+            (default = False)
+
+    Raises:
+        Exception: If there are parameters missing that are required.
+
     """
     import copy
     width=29
@@ -521,8 +637,17 @@ def write_param(filename,param,overwrite=False):
 
 def read_param(filename):
     """
-    Read vorovol parameter file. Parameter are returned in a dictionary.
-        filename: file parameters should be read from
+    Read vorovol parameter file. 
+
+    Args:
+        filename (str): File parameters should be read from.
+
+    Returns:
+        dict: Parameters read from the file.
+
+    Raises:
+        Exception: If there are parameters missing that are required.
+
     """
     cchar = '%'
     # Open and initialize
@@ -564,55 +689,64 @@ def read_param(filename):
 def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             ownfw=False,plotflag=False,plotfile=None,residuals=True,delta=None,
             center=False,Mscl=1.,Rscl=1.,**kwargs):
-    """
-    Returns NFW parameters found using the specified method(s). The output
-    is a dictionary of NFW parameters. If more than one method is specified, 
-    the returned dictionary has the listed methods as keys with the 
-    corresponding NFW parameter dictionaries as values.
-        param   :  dictionary of vorovol parameters or path to a parameter file
-        method  :  method or list of methods that should be used to calculate NFW
-                   parameters. See nfw.calc_nfw for more detailed info on 
-                   techniques (default = 'voronoi')
-          'voronoi'   : use unweighted voronoi volumes to compute radii (See 
-                        util.vol2rad) and then use technique specified by
-                        vorometh.
-          'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
-                        the geometric volumes computed from the actual radii.
-                        The weight X specifies how much the geometric volumes
-                        should be weighted. 
-          'fit'       : leastsq fit to NFW enclosed mass profile
-          'rhalf'     : non-parametric half-mass
-          'vpeak'     : non-parametric peak velocity
-          Any valid inputs for the method argument of nfw.calc_nfw are also 
-          valid here.
-       vorometh:  method that should be used to compute concentration using
-                  voronoi based radii. This is only used for the 'voronoi' and
-                  'voronoi_wX' methods. Valid values include 'fit', 'rhalf',
-                  and 'vpeak' (See above).
-       nfwfile  : path to file where NFW data should be saved. If None, the data
-                  is just returned.
-       ownfw    : if True, existing nfwfile is overwritten. (default = False)
-       plotflag : if True, the data and profile are plotted (default = False)
-       plotfile : path to file where plot should be saved. If None, the plot
-                  is displayed instead. (default = None)
-       residuals: if True, residuals are also plotted
-       delta    : virial overdensity factor (default = 200 for spherical 
-                  techniques, 243 for voronoi)
-       center   : x,y,z location of center of halo or string specifying how
-                  the center should be calculated. If not provided, the halo is
-                  not recentered before the profile is computed. (default = False)
-                  Values include:
-         'com'      : center of mass
-         'vol'      : smallest volume
-       Additional keywords are passed to each calc_nfw method that is called.
+    """Returns NFW parameters found using the specified method(s). 
+
+    Args:
+        param (dict,str): Vorovol parameters or path to a parameter file.
+        method (Optional[str]): Method or list of methods that should be used 
+            to calculate NFW parameters. See `nfw.calc_nfw` for more detailed 
+            info on the techniques (default = 'voronoi'). Any valid input 
+            values for `nfw.calc_nfw` are valid here. Addition options include:
+                'voronoi': use unweighted voronoi volumes to compute radii (See 
+                    `util.vol2rad`) and then use technique specified by
+                    vorometh.
+                'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
+                    the geometric volumes computed from the actual radii.
+                    The weight X specifies how much the geometric volumes
+                    should be weighted. 
+                'fit': leastsq fit to NFW enclosed mass profile.
+                'rhalf': non-parametric half-mass.
+                'vpeak': non-parametric peak velocity.
+       vorometh (Optional[str]): Method that should be used to compute 
+           concentration using voronoi based radii. This is only used for the 
+           'voronoi' and 'voronoi_wX' methods. Valid values include 'fit', 
+           'rhalf', and 'vpeak' (See above).
+       nfwfile (Optional[str]): Path to file where NFW data should be saved. If 
+           None, the data is just returned.
+       ownfw (Optional[bool]): If True, existing nfwfile is overwritten. 
+           (default = False)
+       plotflag (Optional[bool]): If True, the data and profile are plotted. 
+           (default = False)
+       plotfile (Optional[str]): Path to file where plot should be saved. If 
+           None, the plot is displayed instead. (default = None)
+       residuals (Optional[bool]): If True, residuals are also plotted.
+       delta (Optional[float]): Virial overdensity factor (default = 200 for 
+           spherical techniques, 243 for voronoi).
+       center (Optional[np.ndarray,list,tuple,str]): x,y,z location of center 
+           of halo or string specifying how the center should be calculated. If 
+           not provided, the halo is not recentered before the profile is 
+           computed (default = False). String values include:
+               'com': center of mass
+               'vol': smallest volume
+       Rscl (Optional[float]): Value to scale positions and volumes by to 
+           change units. (default = 1.0)
+       Mscl (Optional[float]): Value to scale masses by to change units.
+           (default = 1.0)
+       **kwargs: Additional keywords are passed to each `nfw.calc_nfw` method 
+           that is called.
 
     Returns:
         out (dict): If only one method is specified, this is the dictionary of 
             NFW parameters returned by `nfw.calc_nfw` with the addition of
                 N (int): Number of particles used.
-            If multiple methods are provided, this keys correspond to the 
+            If multiple methods are provided, the keys correspond to the 
             methods tested and the values are the nfw parameter dictionaries
             returned by `nfw.calc_nfw` for each method.
+
+    Raises:
+        TypeError: If param is not a dictionary or file.
+        Exception: If there are not enough colors for all of the methods.
+
     """
     from . import nfw
     colors = ['b','r','g','m','c']
@@ -644,7 +778,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
     elif isinstance(param,dict):
         pass
     else:
-        raise Exception('param must be dictionary or path to parameter file '+
+        raise TypeError('param must be dictionary or path to parameter file '+
                         'not {}'.format(type(param)))
     # Read position file
     mass,pos = read_snapshot(param,center=center)
