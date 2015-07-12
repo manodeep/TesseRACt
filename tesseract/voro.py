@@ -24,11 +24,15 @@ Attributes:
 
 """
 
+# Standard packages
 import os,pickle
 import numpy as np
+
+# Sister modules
 from . import util
 from . import config,config_parser,_config_file_usr
 
+# Package info
 _installdir = os.path.dirname(os.path.realpath(__file__))
 _installdir_vorvol = os.path.join(_installdir,'vorovol')
 _example_parfile = os.path.join(_installdir,'example.param')
