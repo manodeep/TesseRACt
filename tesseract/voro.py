@@ -96,7 +96,7 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
             to create the necessary file names. (default = 'test')
         parfile (Optional[str]): Name of parameter file that should be read or
             created.
-        **kwargs: Additional keywords are passed to `voro.run`.
+        **kwargs: Additional keywords are passed to :func:`tesseract.voro.run`.
 
     Returns:
         np.ndarray: (N,) array of particle volumes.
@@ -171,7 +171,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
             can be 'parfile' and contain the parameter file path. If it is
             not, a generic parameter file named 'voro.param' is created.
         exefile (Optional[str]): Path to vorovol executable file. If not 
-            provided, `_execfile_vorovol` is used.
+            provided, :attr:`tesseract.voro._execfile_vorovol` is used.
         outfile (Optional[str]): Path to file where output from vorovol should 
             be piped. If not provided, output will be printed to the screen.
         overwrite (Optional[bool]): If true, the executable is run even if 
@@ -270,9 +270,9 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
 
     Args:
         makefile (Optional[str]): Path to vorovol Makefile. If not provided,
-            `_makefile_vorovol` is used.
+            :attr:`_makefile_vorovol` is used.
         makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
-            provided, `_makefile_qhull` is used.
+            provided, :attr:`_makefile_qhull` is used.
 
     """
     # Check for required qhull library
@@ -290,9 +290,9 @@ def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
         lib (str): Name of shared library that should be created (including the
             '.so' extension).
         makefile (Optional[str]): Path to vorovol Makefile. If not provided, 
-            `_makefile_vorovol` is used.
+            :attr:`_makefile_vorovol` is used.
         makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
-            provided, `_makefile_qhull` is used.
+            provided, :attr:`_makefile_qhull` is used.
 
     """
     # Check for required qhull library
@@ -312,7 +312,7 @@ def make_qhull(makefile=_makefile_qhull):
 
     Args:
         makefile (Optional[str]): Path to qhull Makefile. If not provided,
-            `_makefile_qhull` is used.
+            :attr:`_makefile_qhull` is used.
     
     """
     make(makefile,product=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
@@ -333,8 +333,8 @@ def namefile(name,param):
         str: Full path to specified output file for the given parameters.
 
     Raises:
-        ValueError: If `name` is 'adjs' and OutputAdjacenciesOn is not 1.
-        ValueError: If `name` is not one of 'part', 'vols', or 'adjs'.
+        ValueError: If ``name`` is 'adjs' and OutputAdjacenciesOn is not 1.
+        ValueError: If ``name`` is not one of 'part', 'vols', or 'adjs'.
 
     """
     # Parse name
@@ -520,52 +520,53 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
         overwrite (Optional[bool]): if True, existing file is replaced. 
             (default = False)
         **kwargs: Additional keywords are parameter fields including:
-            FilePrefix (str): Prefix to add to file names
-            FileSuffix (str): Suffix to add to end of file names (this can be a
-                C style format code if position file refers to multiple 
+
+            * FilePrefix (str): Prefix to add to file names
+            * FileSuffix (str): Suffix to add to end of file names (this can be
+                a C style format code if position file refers to multiple 
                 snapshots).
-            NumDivide (int): Number of times snapshot is divided.
-            PeriodicBoundariesOn (int): Set to 1 if snapshot is periodic.
-            Border (float): Border added to edge of boxes.
-            BoxSize (float): Size of periodic box.
-            PositionFile (str): Path to file containing positions This can 
+            * NumDivide (int): Number of times snapshot is divided.
+            * PeriodicBoundariesOn (int): Set to 1 if snapshot is periodic.
+            * Border (float): Border added to edge of boxes.
+            * BoxSize (float): Size of periodic box.
+            * PositionFile (str): Path to file containing positions This can 
                 contain a C style format code in order to refer to multiple 
                 snapshots with the same naming scheme.
-            PositionFileFormat (int): Code specifying what format the snapshot
+            * PositionFileFormat (int): Code specifying what format the snapshot
                 is in. Valid values include:
-                   -1: Pre-existing vorovol parts file
-                    0: f77 unformatted binary snapshot
-                    1: Gadget snapshot
-                    2: Buildgal TREEBI files
-                    3: BGC2 halo catalogue
-            ParticleType (int): Code specifying what particle type should be
+                    * -1: Pre-existing vorovol parts file
+                    * 0: f77 unformatted binary snapshot
+                    * 1: Gadget snapshot
+                    * 2: Buildgal TREEBI files
+                    * 3: BGC2 halo catalogue
+            * ParticleType (int): Code specifying what particle type should be
                 loaded from the snapshot. This is only used if 
                 PositionFileFormat is 1 (Gadget snapshot) or 4 (Tipsy snapshot). 
                 If equal to -1, all particles are loaded. Value values for 
                 Gadget snapshots include:
-                    0: gas particles
-                    1: dark matter particles
-                    2: disk particles
-                    3: bulge particles
-                    4: star particles
-                    5: boundary particles, but why would you do that?
+                    * 0: gas particles
+                    * 1: dark matter particles
+                    * 2: disk particles
+                    * 3: bulge particles
+                    * 4: star particles
+                    * 5: boundary particles, but why would you do that?
                 Valid values for Tipsy snapshots include:
-                    0: gas particles
-                    1: dark matter particles
-                    2: star particles
-            BgTreebiNskip (int): Number of particles to skip in TREEBI snapshot.
+                    * 0: gas particles
+                    * 1: dark matter particles
+                    * 2: star particles
+            * BgTreebiNskip (int): Number of particles to skip in TREEBI snapshot.
                 This is useful if you know first few particles are part of a 
                 disk that you want to discard.
-            Bgc2HaloId (int): ID number of halo in Bgc2 catalogue. -1 loads all
+            * Bgc2HaloId (int): ID number of halo in Bgc2 catalogue. -1 loads all
                 particle info.
-            OutputDir (str): Path to directory where output should be saved.
-            OutputAdjacenciesOn (int): Set to 1 to also output adjacencies info.
-            DecimateInputBy (int): >1 factor to decimate particle number by for 
+            * OutputDir (str): Path to directory where output should be saved.
+            * OutputAdjacenciesOn (int): Set to 1 to also output adjacencies info.
+            * DecimateInputBy (int): >1 factor to decimate particle number by for 
                 scaling tests and getting a quick peek at large particle sets.
-            MaxNumSnapshot (int): Maximum number of snapshot to do (only invoked 
+            * MaxNumSnapshot (int): Maximum number of snapshot to do (only invoked 
                 if FileSuffix contains a format code).
-            SquishY (float): Factor to squish Y coords (preserves volume).
-            SquishZ (float): Factor to squish Z coords (preserves volume).
+            * SquishY (float): Factor to squish Y coords (preserves volume).
+            * SquishZ (float): Factor to squish Z coords (preserves volume).
 
     Returns:
         dict: Contains values for the parameters listed above that were saved 
@@ -698,19 +699,20 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
     Args:
         param (dict,str): Vorovol parameters or path to a parameter file.
         method (Optional[str]): Method or list of methods that should be used 
-            to calculate NFW parameters. See `nfw.calc_nfw` for more detailed 
-            info on the techniques (default = 'voronoi'). Any valid input 
-            values for `nfw.calc_nfw` are valid here. Addition options include:
-                'voronoi': use unweighted voronoi volumes to compute radii (See 
-                    `util.vol2rad`) and then use technique specified by
-                    vorometh.
-                'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
+            to calculate NFW parameters. See :func:`tesseract.nfw.calc_nfw` 
+            for more detailed info on the techniques (default = 'voronoi'). 
+            Any valid input values for :func:`tesseract.nfw.calc_nfw` are 
+            valid here. Additional options include:
+                * 'voronoi': use unweighted voronoi volumes to compute radii 
+                    (See :func:`tesseract.util.vol2rad`) and then use 
+                    technique specified by vorometh.
+                * 'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
                     the geometric volumes computed from the actual radii.
                     The weight X specifies how much the geometric volumes
                     should be weighted. 
-                'fit': leastsq fit to NFW enclosed mass profile.
-                'rhalf': non-parametric half-mass.
-                'vpeak': non-parametric peak velocity.
+                * 'fit': leastsq fit to NFW enclosed mass profile.
+                * 'rhalf': non-parametric half-mass.
+                * 'vpeak': non-parametric peak velocity.
        vorometh (Optional[str]): Method that should be used to compute 
            concentration using voronoi based radii. This is only used for the 
            'voronoi' and 'voronoi_wX' methods. Valid values include 'fit', 
@@ -730,22 +732,22 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
            of halo or string specifying how the center should be calculated. If 
            not provided, the halo is not recentered before the profile is 
            computed (default = False). String values include:
-               'com': center of mass
-               'vol': smallest volume
+               * 'com': center of mass
+               * 'vol': smallest volume
        Rscl (Optional[float]): Value to scale positions and volumes by to 
            change units. (default = 1.0)
        Mscl (Optional[float]): Value to scale masses by to change units.
            (default = 1.0)
-       **kwargs: Additional keywords are passed to each `nfw.calc_nfw` method 
-           that is called.
+       **kwargs: Additional keywords are passed to each 
+           :func:`tesseract.nfw.calc_nfw` method that is called.
 
     Returns:
-        out (dict): If only one method is specified, this is the dictionary of 
-            NFW parameters returned by `nfw.calc_nfw` with the addition of
-                N (int): Number of particles used.
+        dict: If only one method is specified, this is the dictionary of 
+            NFW parameters returned by :func:`tesseract.nfw.calc_nfw` with 
+                the addition of N (int): Number of particles used.
             If multiple methods are provided, the keys correspond to the 
             methods tested and the values are the nfw parameter dictionaries
-            returned by `nfw.calc_nfw` for each method.
+            returned by :func:`tesseract.nfw.calc_nfw` for each method.
 
     Raises:
         TypeError: If param is not a dictionary or file.

@@ -7,6 +7,7 @@ This module provides methods for running package tests. These can be broken
 into single tests and test series. 
 
 Attributes:
+
     _outputdir (str): Directory where test output will be saved.
     _installdir (str): Directory containing the distribution installation. 
     _halofmt (int): File format of the test halo snapshots.
@@ -305,15 +306,16 @@ def load_test(param=None,Mscl=1.,Rscl=1.,**kwargs):
             parameter file if `param` is not provided.
 
     Returns:
-        dict: A dictionary is returned containing:
-            param (dict): The parameter dictionary for this test.
-            mass (np.ndarray): (N,) array of particle masses.
-            pos (np.ndarray): (N,3) array of particle positions.
-            vol (np.ndarray): (N,) array of particle volumes (only included 
-                if the voronoi tesselation output exists).
+        dict: With keys:
+
+            * **param** (*dict*): The parameter dictionary for this test.
+            * **mass** (*np.ndarray*): (N,) array of particle masses.
+            * **pos** (*np.ndarray*): (N,3) array of particle positions.
+            * **vol** (*np.ndarray*): (N,) array of particle volumes (only 
+                included if the voronoi tesselation output exists).
 
     Raises:
-        ValueError: If the `snapfile` is not a valid path.
+        ValueError: If the ``param['PositionFile]`` is not a valid path.
     """
     # Get parameters
     if param is None:
@@ -349,15 +351,15 @@ def series_vallist(series,vlist=None,vlim=None,Nv=10):
     Args:
         series (str): String identifying what parameter should be varied. 
             Currently supported values include:
-                'conc'       : vary concentration of the halo (5,10,50)
-                'npart'      : vary number of particles (100 to 1,000,000)
-                'oblate'     : vary oblateness of the halo (0.3 to 0.9)
-                'prolate'    : vary prolateness of the halo (0.3 to 0.9)
-                'triax'      : vary triaxiality of the halo (0.1 to 0.9)
-                'substr_mass': substructure of varying mass (0.01 to 0.2)
-                'substr_rsep': substructure at varying radii (0.01 to 0.75)
-                'substr_conc': substructure of varying concentration (5,10,50)
-                'substr_rho0': substructure of varying density (0.1 to 1)
+                * 'conc'       : vary concentration of the halo (5,10,50)
+                * 'npart'      : vary number of particles (100 to 1,000,000)
+                * 'oblate'     : vary oblateness of the halo (0.3 to 0.9)
+                * 'prolate'    : vary prolateness of the halo (0.3 to 0.9)
+                * 'triax'      : vary triaxiality of the halo (0.1 to 0.9)
+                * 'substr_mass': substructure of varying mass (0.01 to 0.2)
+                * 'substr_rsep': substructure at varying radii (0.01 to 0.75)
+                * 'substr_conc': substructure of varying concentration (5,10,50)
+                * 'substr_rho0': substructure of varying density (0.1 to 1)
         vlist (Optional[list]): list of values to vary parameter specified by 
             series over (if not provided, `vlim` and `Nv` are used to generate 
             this list. Default values for `vlim` are different for each series 
@@ -418,15 +420,15 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
             parameter has additional keywords that may be supplied to
             control the test further. These are decribed below.
             (default = 'conc') Supported values are...
-                'conc'       : Vary concentration of the halo (5,10,50)
-                'npart'      : Vary number of particles (100 - 1,000,000)
-                'oblate'     : Vary oblateness of the halo (0.3 - 0.9)
-                'prolate'    : Vary prolateness of the halo (0.3 - 0.9)
-                'triax'      : Vary triaxiality of the halo (0.1 - 0.9)
-                'substr_mass': Substructure of varying mass (0.01 - 0.2)
-                'substr_rsep': Substructure at varying radii (0.01 - 0.75)
-                'substr_conc': Substructure of varying concentration (5,10,50)
-                'substr_rho0': Substructure of varying central density (0.1 - 1)
+                * 'conc'       : Vary concentration of the halo (5,10,50)
+                * 'npart'      : Vary number of particles (100 - 1,000,000)
+                * 'oblate'     : Vary oblateness of the halo (0.3 - 0.9)
+                * 'prolate'    : Vary prolateness of the halo (0.3 - 0.9)
+                * 'triax'      : Vary triaxiality of the halo (0.1 - 0.9)
+                * 'substr_mass': Substructure of varying mass (0.01 - 0.2)
+                * 'substr_rsep': Substructure at varying radii (0.01 - 0.75)
+                * 'substr_conc': Substructure of varying concentration (5,10,50)
+                * 'substr_rho0': Substructure of varying central density (0.1 - 1)
         vlist (Optional[list]): List of values to vary parameter specified by 
             series over (if not provided, vlim and Nv are used to generate this 
             list. Default values for vlim are different for each series and are 
@@ -485,7 +487,7 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
             the series.
 
     Returns:
-        data (dict): NFW parameters for each value. Keys are str(value). The 
+        dict: NFW parameters for each value. Keys are str(value). The 
             items they refer to are dictionaries returned by voro.get_nfw with 
             input methods from nfwmeth. See `voro.get_nfw` for details on their 
             structure.
@@ -823,13 +825,13 @@ def avg_test(nerror=True,verbose=False,**kwargs):
 
     Returns:
         code (int): Integer code specifying state of the test. Any value other 
-            0 indicates that there was an error with all of the runs.
-        out (dict): The same as the output dictionary returned by run_test,
-            with the exception that the values returned are averaged over 
-            the different realizations. In addtion, each method dictionary
+            than 0 indicates that there was an error with all of the runs.
+        **out** (*dict*): The same as the output dictionary returned by 
+            run_test, with the exception that the values returned are averaged 
+            over the different realizations. In addtion, each method dictionary
             will include the standard deviations of these values under the
-            keys k+'_std' and
-               Nstd (int): Number of realizations used to compute average.
+            keys k+'_std' and 'Nstd', the number of realization used to
+            compute the average.
 
     Raises:
         ValueError: If nerror is not a bool or integer.
@@ -894,7 +896,7 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
              owvoro=False,owparam=False,owsnap=False,version=-1,
              c=_default_conc,squishy=False,squishz=False,decimate=False,
              substr=False,subm=_default_subm,subr=_default_subr,
-             subc=_default_subc,subrho=_default_subrho,**nfwkw):
+             subc=_default_subc,subrho=_default_subrho,**kwargs):
     """Run a test.
 
     This inclues creating the necessary parameter and snapshot files, running
@@ -951,23 +953,23 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
             parent's central density. Only used if `substr` == True. 
             (default = `_default_subrho`)
 
-        **nfwkw: Additional keywords are passed to voro.get_nfw. Some keywords 
+        **kwargs: Additional keywords are passed to voro.get_nfw. Some keywords 
             are modified by this method. These include:
-                nfwmeth (Optional[list]): List of methods that should be used 
-                    to find NFW profiles each test value.
-                nfwfile (Optional[str]): Path to file where NFW fit should be 
-                    saved. (default = '[outputdir]/[idstr]_nfw.dat')
-                ownfw (Optional[bool]): If True, any existing NFW data file is 
-                    overwritten. If owvoro is True, this is set to True as well 
-                    in order to make sure the file reflects the most recent 
-                    tessellation.
-                plotfile (Optional[str]): File where profile plot should be 
-                    saved. (default = '[outputdir]/[idstr]_profile.png')
+        nfwmeth (Optional[list]): List of methods that should be used 
+            to find NFW profiles each test value.
+        nfwfile (Optional[str]): Path to file where NFW fit should be 
+            saved. (default = '[outputdir]/[idstr]_nfw.dat')
+        ownfw (Optional[bool]): If True, any existing NFW data file is 
+            overwritten. If owvoro is True, this is set to True as well 
+            in order to make sure the file reflects the most recent 
+            tessellation.
+        plotfile (Optional[str]): File where profile plot should be 
+            saved. (default = '[outputdir]/[idstr]_profile.png')
 
     Returns:
         code (int): Code describing the success or failure of the test as 
             returned by `voro.run`.
-        out (dict): Results dictionary returned by `voro.get_nfw`.
+        **out** (*dict*): Results dictionary returned by `voro.get_nfw`.
 
     Raises:
         ValueError: If the snapfile provided does not exist and there is not 
@@ -983,7 +985,7 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
                        decimate=decimate,substr=substr,subm=subm,subr=subr,
                        subc=subc,subrho=subrho,version=version)
     if owsnap: owvoro = True
-    if owvoro: nfwkw['ownfw'] = True
+    if owvoro: kwargs['ownfw'] = True
     # Update directories and file names based on parameters
     idstr = param['idstr']
     basesnap = param['basesnap']
@@ -991,8 +993,8 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
     snapfile = param['PositionFile']
     if outfile is None:
         outfile = os.path.join(outputdir,idstr+'.out')
-    nfwkw.setdefault('plotfile',os.path.join(outputdir,idstr+'_profile.png'))
-    nfwkw.setdefault('nfwfile',os.path.join(outputdir,idstr+'_nfw.dat'))
+    kwargs.setdefault('plotfile',os.path.join(outputdir,idstr+'_profile.png'))
+    kwargs.setdefault('nfwfile',os.path.join(outputdir,idstr+'_nfw.dat'))
     # Create snapshot if needed
     if not os.path.isfile(snapfile) or owsnap:
         if substr:
@@ -1008,7 +1010,7 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
     # Get and return NFW parameters
     if code == 0:
         try:
-            out = voro.get_nfw(param,method=nfwmeth,**nfwkw)
+            out = voro.get_nfw(param,method=nfwmeth,**kwargs)
             return code,out
         except:
             raise

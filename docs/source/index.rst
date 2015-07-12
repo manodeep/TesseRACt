@@ -15,7 +15,10 @@ Contents:
    install
    config
    code
-   todo
+
+.. todo:: create straight forward tests
+.. todo:: Add runner test script for install
+.. todo:: add outputfile parameter to vorovol
 
 Indices and tables
 ==================
