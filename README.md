@@ -24,13 +24,3 @@ This package includes:
     Lang et al. (2015)
     
 Full documentation for TesseRACt is hosted on [readthedocs.org](https://readthedocs.org/projects/pytesseract/).
-
-
-#TODO
-#====
-#Things that are being worked on:
-#
-#* create example parameter file
-#* create straight forward tests
-#* Add runner test script for install
-#* add outputfile parameter to vorovol
