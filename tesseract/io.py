@@ -277,7 +277,8 @@ class UnformattedBinary(Snapshot):
         Args:
             param (dict): Vorovol parameters. This snapshot class performs the
                 following parameter to keyword mappings:
-                    Unfbi77ArrayType -> dtype (str): Array data type.
+ 
+                    * Unfbi77ArrayType -> dtype (str): Array data type.
 
         Returns:
             dict: Keyword arguments for this class's read/write methods.
@@ -417,14 +418,18 @@ class Gadget2(Snapshot):
                 Gadget snapshot is in. This code determines what function any 
                 additional keywords are passed to. (default = 1) Currently 
                 supported values include:
-                    1: See `io.read_gadget2_binary1` for details.
+
+                    * 1: See `io.read_gadget2_binary1` for details.
+
             *args: Additional arguments are passed to the appropriate method.
             *kwargs: Additional keyword arguments are passed to the appropriate 
                 method.
 
         Returns:
-            mass (np.ndarray): (N,) Particle masses.
-            pos (np.ndarray): (N,3) Particle positions.
+            np.ndarray,np.ndarray: Particle masses and positions:
+
+                * mass (np.ndarray): (N,) Particle masses.
+                * pos (np.ndarray): (N,3) Particle positions.
 
         Raises:
             ValueError: If specified format is not supported.
@@ -453,7 +458,8 @@ class Gadget2(Snapshot):
         Args:
             param (dict): Vorovol parameters. This snapshot class performs the
                 following parameter to keyword mappings:
-                    ParticleType -> ptype (int): Particle type.
+                
+                    * ParticleType -> ptype (int): Particle type.
 
         Returns:
             dict: Keyword arguments for this class's read/write methods.
@@ -473,21 +479,25 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
         ptype (Optional[int,list,tuple,np.ndarray]): Code, or series of codes
             specifying what particle type should be loaded. Supported values 
             include:
-               -1: All particles
-                0: Gas particles
-                1: Dark matter particles
-                2: Disk particles
-                3: Bulge particles
-                4: Star particles
-                5: Boundary particles
+
+                * -1: All particles
+                * 0: Gas particles
+                * 1: Dark matter particles
+                * 2: Disk particles
+                * 3: Bulge particles
+                * 4: Star particles
+                * 5: Boundary particles
+
         return_npart (Optional[bool]): If True, only the number of particles 
             is read from the file (default = False).
         return_header (Optional[bool]): If True, only the file header is read
             from the file (default = False).
 
     Returns:
-        mass (np.ndarray): (N,) Particle masses.
-        pos (np.ndarray): (N,3) Particle positions.
+        np.ndarray,np.ndarray: Particle masses and positions:
+
+            * mass (np.ndarray): (N,) Particle masses.
+            * pos (np.ndarray): (N,3) Particle positions.
 
     Raises:
         TypeError: If `ptype` is not an integer or series of integers.
@@ -670,7 +680,8 @@ class BuildgalTreebi(Snapshot):
         Args:
             param (dict): Vorovol parameters. This snapshot class performs the
                 following parameter to keyword mappings:
-                    BgTreebiNskip -> nskip (int): Number of particles to skip.
+
+                    * BgTreebiNskip -> nskip (int): Number of particles to skip.
 
         Returns:
             dict: Keyword arguments for this class's read/write methods.
@@ -779,7 +790,8 @@ class Bgc2HaloCatalogue(Snapshot):
         Args:
             param (dict): Vorovol parameters. This snapshot class performs the
                 following parameter to keyword mappings:
-                    Bgc2HaloId -> haloid (int): Halo ID.
+
+                    * Bgc2HaloId -> haloid (int): Halo ID.
 
         Returns:
             dict: Keyword arguments for this class's read/write methods.
@@ -1069,7 +1081,8 @@ class Tipsy(Snapshot):
         Args:
             param (dict): Vorovol parameters. This snapshot class performs the
                 following parameter to keyword mappings:
-                    ParticleType -> ptype (int): Particle type.
+
+                    * ParticleType -> ptype (int): Particle type.
 
         Returns:
             dict: Keyword arguments for this class's read/write methods.
@@ -1088,10 +1101,12 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
         filename (str): Full path to file that should be read.
         ptype (Optional[int]): Code specifying what particle type should be 
             loaded. Supported values include:
-               -1: All particles
-                0: Gas particles
-                1: Dark matter particles
-                2: Star particles
+
+                * -1: All particles
+                * 0: Gas particles
+                * 1: Dark matter particles
+                * 2: Star particles
+
         return_npart (Optional[bool]): If True, only the number of particles 
             is read from the file (default = False).
         return_header (Optional[bool]): If True, only the file header is read
@@ -1102,8 +1117,10 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
             (default = 'f')
 
     Returns:
-        mass (np.ndarray): (N,) Particle masses.
-        pos (np.ndarray): (N,3) Particle positions.
+        np.ndarray,np.ndarray: Particle masses and positions:
+
+            * mass (np.ndarray): (N,) Particle masses.
+            * pos (np.ndarray): (N,3) Particle positions.
 
     Raises:
         TypeError: If `ptype` is not an integer or series of integers.

@@ -351,6 +351,7 @@ def series_vallist(series,vlist=None,vlim=None,Nv=10):
     Args:
         series (str): String identifying what parameter should be varied. 
             Currently supported values include:
+
                 * 'conc'       : vary concentration of the halo (5,10,50)
                 * 'npart'      : vary number of particles (100 to 1,000,000)
                 * 'oblate'     : vary oblateness of the halo (0.3 to 0.9)
@@ -360,6 +361,7 @@ def series_vallist(series,vlist=None,vlim=None,Nv=10):
                 * 'substr_rsep': substructure at varying radii (0.01 to 0.75)
                 * 'substr_conc': substructure of varying concentration (5,10,50)
                 * 'substr_rho0': substructure of varying density (0.1 to 1)
+
         vlist (Optional[list]): list of values to vary parameter specified by 
             series over (if not provided, `vlim` and `Nv` are used to generate 
             this list. Default values for `vlim` are different for each series 
@@ -371,7 +373,7 @@ def series_vallist(series,vlist=None,vlim=None,Nv=10):
 
     Returns:
         list: Values that a parameter for a given series should be varied 
-            over.
+        over.
 
     Raises:
         ValueError: If `series` is not in `_list_series` or `vlist` is
@@ -420,6 +422,7 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
             parameter has additional keywords that may be supplied to
             control the test further. These are decribed below.
             (default = 'conc') Supported values are...
+
                 * 'conc'       : Vary concentration of the halo (5,10,50)
                 * 'npart'      : Vary number of particles (100 - 1,000,000)
                 * 'oblate'     : Vary oblateness of the halo (0.3 - 0.9)
@@ -429,6 +432,7 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
                 * 'substr_rsep': Substructure at varying radii (0.01 - 0.75)
                 * 'substr_conc': Substructure of varying concentration (5,10,50)
                 * 'substr_rho0': Substructure of varying central density (0.1 - 1)
+
         vlist (Optional[list]): List of values to vary parameter specified by 
             series over (if not provided, vlim and Nv are used to generate this 
             list. Default values for vlim are different for each series and are 
@@ -440,7 +444,6 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
         errors (Optional[int]): Number of versions that should be run in order 
             to get errors. If set to True, all versions that can be found are 
             used. If set to False, no errors are included. (default = False)
-
         c (Optional[float]): Concentration of parent halo (default = 10)
             Used for all series except 'conc' for obvious reasons.
         decimate (Optional[int]): Factor that particle number should be 
@@ -463,7 +466,6 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
         subrho (Optional[float]): Central density of subhalo relative to 
             parent's central density. Only used for 'substr_*' series, but not 
             for 'substr_rho'. (default = 0.5)
-
         topdir (Optional[str]): Path to directory where a separate directory 
             should be created for this run based on idstr. 
             (default = `_outputdir`)
@@ -482,15 +484,15 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
         plotfile (Optional[str]): File where profile plot should be saved.
         plotprof (Optional[bool]): If true, profiles for each test are plotted .
             (default = True)
-
-        **kwargs: Additional keywords are passed to `avg_run` for each value in 
+        **kwargs: Additional keywords are passed to 
+            :func:`tesseract.tests.avg_run` for each value in 
             the series.
 
     Returns:
         dict: NFW parameters for each value. Keys are str(value). The 
-            items they refer to are dictionaries returned by voro.get_nfw with 
-            input methods from nfwmeth. See `voro.get_nfw` for details on their 
-            structure.
+        items they refer to are dictionaries returned by 
+        :func:`tesseract.voro.get_nfw` with input methods from nfwmeth. 
+        See :func:`tesseract.voro.get_nfw` for details on their  structure.
 
     Raises:
         ValueError: If `series` is not in `_list_series`.
@@ -824,14 +826,16 @@ def avg_test(nerror=True,verbose=False,**kwargs):
         **kwargs: Additional keywords are passed to run_test.
 
     Returns:
-        code (int): Integer code specifying state of the test. Any value other 
-            than 0 indicates that there was an error with all of the runs.
-        **out** (*dict*): The same as the output dictionary returned by 
-            run_test, with the exception that the values returned are averaged 
-            over the different realizations. In addtion, each method dictionary
-            will include the standard deviations of these values under the
-            keys k+'_std' and 'Nstd', the number of realization used to
-            compute the average.
+        int,dict: Integer **code** and output dictionary **out**:
+
+            * **code** (*int*): Integer code specifying state of the test. Any value other 
+                than 0 indicates that there was an error with all of the runs.
+            * **out** (*dict*): The same as the output dictionary returned by 
+                :func:`tesseract.voro.run_test`, with the exception that the 
+                values returned are averaged over the different realizations. In 
+                addtion, each method dictionary will include the standard 
+                deviations of these values under the keys k+'_std' and 'Nstd', the 
+                number of realization used to compute the average.
 
     Raises:
         ValueError: If nerror is not a bool or integer.
@@ -953,8 +957,9 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
             parent's central density. Only used if `substr` == True. 
             (default = `_default_subrho`)
 
-        **kwargs: Additional keywords are passed to voro.get_nfw. Some keywords 
-            are modified by this method. These include:
+        **kwargs: Additional keywords are passed to 
+            :func:`tesseract.voro.get_nfw`. Some keywords are modified by 
+            this method. These include:
         nfwmeth (Optional[list]): List of methods that should be used 
             to find NFW profiles each test value.
         nfwfile (Optional[str]): Path to file where NFW fit should be 
@@ -967,9 +972,12 @@ def run_test(idstr=None,topdir=None,prefix='',nfwmeth=_nfwmeth,verbose=True,
             saved. (default = '[outputdir]/[idstr]_profile.png')
 
     Returns:
-        code (int): Code describing the success or failure of the test as 
-            returned by `voro.run`.
-        **out** (*dict*): Results dictionary returned by `voro.get_nfw`.
+        int,dict: Int **code** and dict **out**:
+        
+            * **code** (*int*): Code describing the success or failure of the test as 
+                returned by `voro.run`.
+            * **out** (*dict*): Results dictionary returned by 
+                :func:`tesseract.voro.get_nfw`.
 
     Raises:
         ValueError: If the snapfile provided does not exist and there is not 
