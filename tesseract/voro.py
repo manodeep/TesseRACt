@@ -779,7 +779,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
                         'not {}'.format(type(param)))
     # Read position file
     vol = None
-    mass,pos = read_snapshot(param,center=center)
+    mass,pos = read_snapshot(param)
     mass*=Mscl
     pos*=Rscl
     # Center
