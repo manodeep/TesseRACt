@@ -19,6 +19,7 @@ This package includes:
     [Lang et al. (2015)](http://arxiv.org/abs/1504.04307).
 
 Below are some useful links associated with TesseRACt:
+
  * [PyPI](https://pypi.python.org/pypi/tesseract) - The most recent stable release.
  * [Docs](https://readthedocs.org/projects/pytesseract/) - Tutorials and descriptions of the package modules and functions.
  * [Lang et al. (2015)](http://arxiv.org/abs/1504.04307) - The accompanying scientific paper.
