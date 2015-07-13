@@ -96,7 +96,7 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
             to create the necessary file names. (default = 'test')
         parfile (Optional[str]): Name of parameter file that should be read or
             created.
-        **kwargs: Additional keywords are passed to :func:`tesseract.voro.run`.
+        \*\*kwargs: Additional keywords are passed to :func:`tesseract.voro.run`.
 
     Returns:
         np.ndarray: (N,) array of particle volumes.
@@ -383,7 +383,7 @@ def read_snapshot(param,return_npart=False,**kwargs):
             format (PositionFileFormat) of the file that will be written.
         return_npart (Optional[bool]): Set to True if only the number of 
             particles in the snapshot should be returned. (default = False)
-        **kwargs: Additional keywords are passed to the appropriate method for 
+        \*\*kwargs: Additional keywords are passed to the appropriate method for 
             reading the PositionFileFormat specified in the parameters.
 
     Returns:
@@ -504,7 +504,7 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
             and all required fields must be provided.
         overwrite (Optional[bool]): if True, existing file is replaced. 
             (default = False)
-        **kwargs: Additional keywords are parameter fields including:
+        \*\*kwargs: Additional keywords are parameter fields including:
 
             * FilePrefix (str): Prefix to add to file names
             * FileSuffix (str): Suffix to add to end of file names (this can be
@@ -739,7 +739,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
            change units. (default = 1.0)
        Mscl (Optional[float]): Value to scale masses by to change units.
            (default = 1.0)
-       **kwargs: Additional keywords are passed to each method 
+       \*\*kwargs: Additional keywords are passed to each method 
            :func:`tesseract.nfw.calc_nfw` is called with.
 
     Returns:
