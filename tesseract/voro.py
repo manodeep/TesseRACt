@@ -17,7 +17,7 @@ Attributes:
     _installdir_qhull (str): Directory containing the Qhull source code.
     _makefile_qhull (str): Path to Qhull Makefile.
     _execfile_qhull (str): Path to the necessary Qhull header file.
-    _paramlist (list): Required vorovol parameters.
+    _paramlist (list): All vorovol parameters.
     _paramopt (list): Optional vorovol parameters.
 
 .. todo:: suppress vorovol output from qhull 
@@ -370,7 +370,7 @@ def namefile(name,param):
     return os.path.join(fdir,'{}{}.{}{}'.format(fnam,param['FileSuffix'],
                                                 name,ext))
 
-def read_snapshot(param,return_npart=False,center=False,**kwargs):
+def read_snapshot(param,return_npart=False,**kwargs):
     """
     Read position file, downsample, performing volume preserving 
     transformation based on parameters. (This replicates what vorovol does when
@@ -382,10 +382,6 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
             format (PositionFileFormat) of the file that will be written.
         return_npart (Optional[bool]): Set to True if only the number of 
             particles in the snapshot should be returned. (default = False)
-        center (Optional[array,str]): 3 element array specifying where 
-            particles should be recentered or a string specifying what method
-            should be used to center the particles. Supported methods include:
-                'com': center of mass
         **kwargs: Additional keywords are passed to the appropriate method for 
             reading the PositionFileFormat specified in the parameters.
 
@@ -398,8 +394,6 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
         ValueError: If PositionFileFormat is not in io._snapshot_formats.
         Exception: If downsampling does not yield the expected number of 
             particles.
-        TypeError: If center is not a 3 element array, list, tuple or one of
-            the supported strings.
 
     """
     from . import io
@@ -449,16 +443,6 @@ def read_snapshot(param,return_npart=False,center=False,**kwargs):
             raise Exception('Error downsampling. Should have {}, '.format(Nnew)+
                             'but we have {}.'.format(len(mass)))
         mass*= (float(Nold)/float(Nnew))
-    # Center on the center of mass
-    if center:
-        if isinstance(center,(list,tuple,np.ndarray)) and len(center)==3:
-            com = center
-        elif isinstance(center,str) and center in ['com','mass']:
-            com = np.dot(pos.T,mass)/mass.sum()
-        else:
-            raise TypeError('Unknown center: {}'.format(center))
-        for i in range(3):
-            pos[:,i]-= com[i]
     # Return
     return mass,pos
 
@@ -682,7 +666,11 @@ def read_param(filename):
     missing = []
     for k in _paramlist:
         if k not in param:
-            missing.append(k)
+            if k=='ParticleType' and 'GadgetParticleType' in param:
+                param['ParticleType'] = param['GadgetParticleType']
+                write_param(filename,param,overwrite=True)
+            else:
+                missing.append(k)
     if len(missing)>0:
         raise Exception('There are missing parameter fields: {}'.format(missing))
     # Return
@@ -731,9 +719,10 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
        center (Optional[np.ndarray,list,tuple,str]): x,y,z location of center 
            of halo or string specifying how the center should be calculated. If 
            not provided, the halo is not recentered before the profile is 
-           computed (default = False). String values include:
+           computed (default = False). 
                * 'com': center of mass
                * 'vol': smallest volume
+               * 'mid': middle of particles (avg of min and max for x,y,z)
        Rscl (Optional[float]): Value to scale positions and volumes by to 
            change units. (default = 1.0)
        Mscl (Optional[float]): Value to scale masses by to change units.
@@ -751,6 +740,8 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
 
     Raises:
         TypeError: If param is not a dictionary or file.
+        TypeError: If center is not a 3 element array, list, tuple or one of
+            the supported strings.
         Exception: If there are not enough colors for all of the methods.
 
     """
@@ -787,9 +778,29 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
         raise TypeError('param must be dictionary or path to parameter file '+
                         'not {}'.format(type(param)))
     # Read position file
+    vol = None
     mass,pos = read_snapshot(param,center=center)
     mass*=Mscl
     pos*=Rscl
+    # Center
+    if center:
+        if isinstance(center,(list,tuple,np.ndarray)) and len(center)==3:
+            com = center
+        elif isinstance(center,str) and center in ['com','mass']:
+            com = np.dot(pos.T,mass)/mass.sum()
+        elif isinstance(center,str) and center in ['vol','rho']:
+            vol = read_volume(namefile('vols',param))
+            vol*=(Rscl**3.)
+            idxfin = np.where(vol>=0)[0]
+            idxcom = np.argmin(vols[idxfin])
+            com = pos[idxfin[idxcom],:]
+        elif isinstance(center,str) and center in ['mid']:
+            com = np.array([(pos[:,i].min()+pos[:,i].max())/2. for i in range(3)])
+        else:
+            raise TypeError('Unknown center: {}'.format(center))
+        for i in range(3):
+            pos[:,i]-= com[i]
+    # Compute radii
     rad = np.sqrt(pos[:,0]**2. + pos[:,1]**2. + pos[:,2]**2.)
     radsort = np.argsort(rad)
     # Setup plot
@@ -814,7 +825,6 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
         axs = None
         axs_res = None
     # Loop over method
-    vol = None
     for i,m in enumerate(methlist):
         if m in out:
             continue
