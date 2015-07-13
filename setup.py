@@ -1,16 +1,16 @@
 from distutils.core import setup
 
-with open('README.md') as file:
+with open('README.rst') as file:
     long_description = file.read()
 
 setup(
     name = 'tesseract',
     packages = ['tesseract'],
     package_dir = {'tesseract': 'tesseract'},
-    package_data = {'tesseract': ['README.md','default_config.ini','halos/*.snap',
+    package_data = {'tesseract': ['README.md','README.rst','default_config.ini','halos/*.snap',
 				  'qhull2002.1.tar','example.param',
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
-    version = '0.1.2',
+    version = '0.1.3',
     author = 'Meagan Lang',
     author_email = 'meagan.lang@vanderbilt.edu',
     url = 'http://vpac00.phy.vanderbilt.edu/~langmm/index.html',
