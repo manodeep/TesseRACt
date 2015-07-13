@@ -69,7 +69,7 @@ rst_epilog = """
 .. _PyPI: https://pypi.python.org/pypi/tesseract
 .. _Lang et al. (2015): http://arxiv.org/abs/1504.04307
 .. _Meagan Lang: cfh5058@gmail.com
-.. _Docs: https://readthedocs.org/projects/pytesseract/
+.. _Docs: http://pytesseract.readthedocs.org/en/latest/
 .. _qhull: http://www.qhull.org/
 .. |tesseract| replace:: TesseRACt
 """
