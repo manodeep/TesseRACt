@@ -183,8 +183,9 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
 
     Returns:
         code (int): Non-zero codes refer to an error generated while running
-            vorovol. 
-        .. todo:: description of common errors in run
+        vorovol. 
+
+    .. todo:: description of common errors in run
 
     Raises:
         ValueError: If parfile does not exist.
@@ -454,8 +455,8 @@ def read_volume(filename):
 
     Returns:
         vols (np.ndarray): (N,) array of volumes associated with particles. 
-            Negative values indicate that the volume is infinite (this occurs 
-            at edges).
+        Negative values indicate that the volume is infinite (this occurs 
+        at edges).
 
     """
     import struct
@@ -518,26 +519,32 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
                 snapshots with the same naming scheme.
             * PositionFileFormat (int): Code specifying what format the snapshot
                 is in. Valid values include:
+
                     * -1: Pre-existing vorovol parts file
                     * 0: f77 unformatted binary snapshot
                     * 1: Gadget snapshot
                     * 2: Buildgal TREEBI files
                     * 3: BGC2 halo catalogue
+
             * ParticleType (int): Code specifying what particle type should be
                 loaded from the snapshot. This is only used if 
                 PositionFileFormat is 1 (Gadget snapshot) or 4 (Tipsy snapshot). 
                 If equal to -1, all particles are loaded. Value values for 
                 Gadget snapshots include:
+
                     * 0: gas particles
                     * 1: dark matter particles
                     * 2: disk particles
                     * 3: bulge particles
                     * 4: star particles
                     * 5: boundary particles, but why would you do that?
+
                 Valid values for Tipsy snapshots include:
+
                     * 0: gas particles
                     * 1: dark matter particles
                     * 2: star particles
+
             * BgTreebiNskip (int): Number of particles to skip in TREEBI snapshot.
                 This is useful if you know first few particles are part of a 
                 disk that you want to discard.
@@ -554,8 +561,8 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
 
     Returns:
         dict: Contains values for the parameters listed above that were saved 
-            to the file. If the file already exists and overwrite is not set,
-            these will be the parameters loaded form the existing file.
+        to the file. If the file already exists and overwrite is not set,
+        these will be the parameters loaded form the existing file.
 
     """
     # Prevent overwrite
@@ -686,21 +693,23 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
 
     Args:
         param (dict,str): Vorovol parameters or path to a parameter file.
-        method (Optional[str]): Method or list of methods that should be used 
-            to calculate NFW parameters. See :func:`tesseract.nfw.calc_nfw` 
+        method (Optional[str,list]): Method or list of methods that should be 
+            used to calculate NFW parameters. See :func:`tesseract.nfw.calc_nfw` 
             for more detailed info on the techniques (default = 'voronoi'). 
             Any valid input values for :func:`tesseract.nfw.calc_nfw` are 
-            valid here. Additional options include:
+            valid here. Additional options include...
+
                 * 'voronoi': use unweighted voronoi volumes to compute radii 
                     (See :func:`tesseract.util.vol2rad`) and then use 
                     technique specified by vorometh.
                 * 'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
                     the geometric volumes computed from the actual radii.
                     The weight X specifies how much the geometric volumes
-                    should be weighted. 
+                    should be weighted.  
                 * 'fit': leastsq fit to NFW enclosed mass profile.
                 * 'rhalf': non-parametric half-mass.
                 * 'vpeak': non-parametric peak velocity.
+
        vorometh (Optional[str]): Method that should be used to compute 
            concentration using voronoi based radii. This is only used for the 
            'voronoi' and 'voronoi_wX' methods. Valid values include 'fit', 
@@ -713,30 +722,33 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
            (default = False)
        plotfile (Optional[str]): Path to file where plot should be saved. If 
            None, the plot is displayed instead. (default = None)
-       residuals (Optional[bool]): If True, residuals are also plotted.
+       residuals (Optional[bool]): If True, residuals are also plotted on an
+           axes of their own. (default = True)
        delta (Optional[float]): Virial overdensity factor (default = 200 for 
            spherical techniques, 243 for voronoi).
        center (Optional[np.ndarray,list,tuple,str]): x,y,z location of center 
            of halo or string specifying how the center should be calculated. If 
            not provided, the halo is not recentered before the profile is 
-           computed (default = False). 
+           computed (default = False).
+ 
                * 'com': center of mass
                * 'vol': smallest volume
                * 'mid': middle of particles (avg of min and max for x,y,z)
+
        Rscl (Optional[float]): Value to scale positions and volumes by to 
            change units. (default = 1.0)
        Mscl (Optional[float]): Value to scale masses by to change units.
            (default = 1.0)
-       **kwargs: Additional keywords are passed to each 
-           :func:`tesseract.nfw.calc_nfw` method that is called.
+       **kwargs: Additional keywords are passed to each method 
+           :func:`tesseract.nfw.calc_nfw` is called with.
 
     Returns:
         dict: If only one method is specified, this is the dictionary of 
-            NFW parameters returned by :func:`tesseract.nfw.calc_nfw` with 
-                the addition of N (int): Number of particles used.
-            If multiple methods are provided, the keys correspond to the 
-            methods tested and the values are the nfw parameter dictionaries
-            returned by :func:`tesseract.nfw.calc_nfw` for each method.
+        NFW parameters returned by :func:`tesseract.nfw.calc_nfw` with 
+        the addition of N, the number of particles used. If multiple 
+        methods are provided, the keys correspond to the methods tested 
+        and the values are the nfw parameter dictionaries returned by 
+        :func:`tesseract.nfw.calc_nfw` for each method.
 
     Raises:
         TypeError: If param is not a dictionary or file.

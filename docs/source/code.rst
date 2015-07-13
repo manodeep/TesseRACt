@@ -2,9 +2,6 @@
 Code
 ####
 
-.. automodule:: tesseract.__init__
-   :members:
-
 .. automodule:: tesseract.tests
    :members:
 

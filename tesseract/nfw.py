@@ -15,9 +15,9 @@ Attributes:
         `nfw-options` section of the tesseract config file. Some values of note
         include:
 
-            *1.1845e2 ``Msol/kpc**3`` - Value assumed by langmm's buildgal.
-            *1.4139e2 ``Msol/kpc**3`` - Value assumed by khb's buildgal.
-            *1.4624e2 ``Msol/kpc**3`` - Value derived from the Gadget2 cosmology.
+            * 1.1845e2 ``Msol/kpc^3`` - Value assumed by langmm's buildgal.
+            * 1.4139e2 ``Msol/kpc^3`` - Value assumed by khb's buildgal.
+            * 1.4624e2 ``Msol/kpc^3`` - Value derived from the Gadget2 cosmology.
 
 """
 
