@@ -5,6 +5,7 @@
 int voz1b1(int sector[3], char *outfile, float **p, int np, int ThisTask);
 int voztie(char *suffix, int ThisTask);
 
+int tessellate(coordT *points, int nvp, int periodic, float **vols, int ThisTask);
 int delaunadj (coordT *points, int nvp, int nvpbuf, int nvpall, int periodic, PARTADJ **adjs, int ThisTask);
 int adj2vol (coordT *deladjs, int numpoints, float *vol, int ThisTask);
 

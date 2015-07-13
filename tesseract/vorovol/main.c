@@ -648,6 +648,7 @@ int voz1b1(int sector[3], char* outfile, float **p, int np, int ThisTask) {
   int ninfinite;
   int d;
   int NTask = 1;
+  int countnadj2 = 0;
 
   if (vols != NULL) {
     printf("Pointer is not null on initialization\n");
@@ -962,6 +963,12 @@ int voz1b1(int sector[3], char* outfile, float **p, int np, int ThisTask) {
       /* Particles bordering upper delaunay facet */
       else if (adjs[i].nadj == -1) {
 	vols[i] = (float)(-1); /* INFINITY; */
+      }
+      /* Particles with nadj = -2 (invalid vertex?) */
+      else if (adjs[i].nadj == -2) {
+	countnadj2++;
+	printf("Thread %03d: Particle %d has nadj=%d (%d total)\n",
+	       ThisTask,i,adjs[i].nadj,countnadj2);
       }
       /* Particles that have a weird number of adjacencies */
       else {
