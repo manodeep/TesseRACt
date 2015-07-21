@@ -70,9 +70,8 @@ In this case, the only parameters you will need to provide in ``param`` are
 
     * **FilePrefix**: Prefix to add to file names.
     * **PositionFile**: Full path to file containing the particle data.
-    * **PositionFileFormat**: An integer specifying what format the 
-        **PositionFile** is in (See :func:`tesseract.io.read_snapshot` for a list 
-        of valid formats).
+    * **PositionFileFormat**: An integer specifying what format the **PositionFile** 
+    is in (See :func:`tesseract.io.read_snapshot` for a list of valid formats).
     * **OutputDir**: Full path to directory where files should be saved.
 
 
