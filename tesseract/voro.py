@@ -525,6 +525,7 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
                     * 1: Gadget snapshot
                     * 2: Buildgal TREEBI files
                     * 3: BGC2 halo catalogue
+                    * 4: Tipsy snapshot
 
             * ParticleType (int): Code specifying what particle type should be
                 loaded from the snapshot. This is only used if 
