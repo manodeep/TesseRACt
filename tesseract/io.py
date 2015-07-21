@@ -47,13 +47,13 @@ def register_snapshot_format(code):
     return wrapper
 def display_snapshot_formats():
     """Prints information on the registered snapshot formats."""
-    print 80*'='
-    print '{:4s}  {:20s}  {}'.format('code','name','description')
-    print 80*'-'
+    print(80*'=')
+    print('{:4s}  {:20s}  {}'.format('code','name','description'))
+    print(80*'-')
     for c in sorted(_snapshot_formats.keys()):
         f = _snapshot_formats[c]
-        print '{:4d}  {:20s}  {}'.format(c,f.__name__,f.__doc__)
-    print 80*'='
+        print('{:4d}  {:20s}  {}'.format(c,f.__name__,f.__doc__))
+    print(80*'=')
 
 # ------------------------------------------------------------------------------
 # SUPPORTING IO OBJECTS/METHODS
@@ -371,8 +371,8 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
     import struct
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return
     # Check data type
     dtype = np.dtype('float32')
@@ -750,8 +750,8 @@ def write_bgtreebi(filename,mass,pos,overwrite=False):
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return
     # Check sizes
     if len(mass)!=pos.shape[0]:
@@ -1148,15 +1148,15 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
     header_struct = TipsyHeaderStruct()
     header = header_struct.read(fd)
     if header['ntot']!=sum(header['npart']):
-        print 'ntot = ',header['ntot']
-        print 'npart = ',header['npart']
+        print('ntot = ',header['ntot'])
+        print('npart = ',header['npart'])
         raise IOError('Error reading file: {}.'.format(filename))
     if return_header:
         fd.close()
         return header
     # Random 4 bytes
     mystery = struct.unpack('i',fd.read(4))
-    print 'Tipsy Mystery Number = {}'.format(mystery)
+    print('Tipsy Mystery Number = {}'.format(mystery))
     # Count particles & return if specified
     nout = 0 ; pc = np.zeros(3) ; mc = np.zeros(3)
     for t in typelist:

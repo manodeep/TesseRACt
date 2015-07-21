@@ -50,7 +50,7 @@ else:
     qstr = 'Please enter the path to an existing directory where qhull should be installed: '
     _qhulldir = os.path.expanduser(raw_input(qstr).strip())
     while not os.path.isdir(_qhulldir):
-        print 'That is not a valid directory.'
+        print('That is not a valid directory.')
         _qhulldir = os.path.expanduser(raw_input(qstr).strip())
     # Add option to config file
     if not config_parser.has_section('qhull'):
@@ -61,9 +61,9 @@ else:
     # Unpack the tar file
     _qhulltar = os.path.join(_installdir,'qhull2002.1.tar')
     if os.path.isdir(os.path.join(_qhulldir,'qhull2002.1')):
-        print 'There is already a qhull installation there. No new installation necessary.'
+        print('There is already a qhull installation there. No new installation necessary.')
     else:
-        print 'Unpacking Qhull in {}...'.format(_qhulldir)
+        print('Unpacking Qhull in {}...'.format(_qhulldir))
         os.system('tar -C {} -xf {}'.format(_qhulldir,_qhulltar))
 
 # Qhull files
@@ -119,7 +119,7 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
     # Create snapshot
     snapfile = param['PositionFile']
     if os.path.isfile(snapfile):
-        print 'Snapshot already exists. Using it.'
+        print('Snapshot already exists. Using it.')
     else:
         from . import io
         if isinstance(mass,type(None)):
@@ -149,13 +149,13 @@ def _tessellate(pos):
     import ctypes
     from ctypes.util import find_library
     if not os.path.isfile(_sharedlib_vozutil):
-        print _sharedlib_vozutil
+        print(_sharedlib_vozutil)
         make_library('libvozutil.so')
     os.environ['LD_LIBRARY_PATH'] = os.path.dirname(_sharedlib_vozutil)+':'+\
         os.environ['LD_LIBRARY_PATH']
     libvozutil = ctypes.CDLL(_sharedlib_vozutil,mode=ctypes.RTLD_GLOBAL)
 #    libvozutil = ctypes.cdll.LoadLibrary(_sharedlib_vozutil)
-    print dir(libvozutil)
+    print(dir(libvozutil))
     raise Exception('This funciton is a work in progress. Do not use it.')
 
 # ------------------------------------------------------------------------------
@@ -208,8 +208,8 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     volfile = namefile('vols',param)
     if os.path.isfile(volfile) and not overwrite:
         if verbose:
-            print 'voro.py @ 63: Voronoi output already exists and overwrite not set.'
-            print '    '+volfile
+            print('voro.py @ 63: Voronoi output already exists and overwrite not set.')
+            print('    '+volfile)
         return 0
     # Compile executable if it does not exists
     if not os.path.isfile(exefile) or recompile:
@@ -229,7 +229,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     curdir = os.getcwd()
     os.chdir(os.path.dirname(exefile))
     if verbose:
-        print cmd
+        print(cmd)
     code = os.system(cmd)
     os.chdir(curdir)
     # Return code
@@ -568,8 +568,8 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return read_param(filename)
     # Read base file if provided
     if basefile is not None:
@@ -606,8 +606,8 @@ def write_param(filename,param,overwrite=False):
     optpar = copy.deepcopy(_paramopt)
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return
     # Add optional parameters
     if param.get('PeriodicBoundariesOn',1)==0:
@@ -866,7 +866,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             #rho = mass[idxfin][idxsort]/vol[idxfin][idxsort]
             # rvir,mvir = nfw.calc_virial(volrad,rho=rho,delta=idelta,
             #                             rhoc=kwargs.get('rhoc',None))
-            #print 'voro.py @ 424: rvir,mvir = ',rvir,mvir
+            #print('voro.py @ 424: rvir,mvir = ',rvir,mvir)
             # Get nfw params
             out[m] = nfw.calc_nfw(volrad,m=mass[idxfin][idxsort],
                                   method=vorometh,issorted=True,
@@ -910,7 +910,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             plt.show()
         else:
             plt.savefig(plotfile,bbox_inches='tight',bbox_extra_artists=[leg])
-            print '    '+plotfile
+            print('    '+plotfile)
     # Return output
     if not isinstance(method,list):
         return out[method]

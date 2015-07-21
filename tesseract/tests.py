@@ -280,7 +280,7 @@ def param_test(idstr=None,filename=None,overwrite=False,topdir=_outputdir,
         param = voro.read_param(filename)
         # Fix directory
         if param['OutputDir']!=outputdir:
-            print 'Fixing miss-matched dir.'
+            print('Fixing miss-matched dir.')
             param['OutputDir'] = outputdir
             param['PositionFile'] = snapfile
             param = voro.make_param(filename,overwrite=True,**param)
@@ -337,8 +337,8 @@ def load_test(param=None,Mscl=1.,Rscl=1.,**kwargs):
         out['vol'] = voro.read_volume(volfile)
         out['vol']*=(Rscl**3.)
     else:
-        print 'Could not load volume file.'
-        print '    '+volfile
+        print('Could not load volume file.')
+        print('    '+volfile)
     # Return
     return out
 
@@ -553,8 +553,8 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
     vlist0 = [] ; data = {}
     for v in vlist:
         # Start
-        print 80*'-'
-        print 'Running {} = {}...'.format(series,v)
+        print(80*'-')
+        print('Running {} = {}...'.format(series,v))
         # Set keywords for varied parameter
         if   series == 'conc': 
             kws['c'] = v
@@ -580,12 +580,12 @@ def run_series(series,vlist=None,vlim=None,Nv=10,nfwmeth=_nfwmeth,errors=False,
         code,iout = avg_test(owvoro=owvoro,owparam=owparam,owsnap=owsnap,
                              plotflag=plotprof,topdir=topdir,nerror=nerror,
                              ownfw=ownfw,nfwmeth=nfwmeth,prefix=prefix,**kws)
-        print 'result ({}) = {}'.format(v,code)
+        print('result ({}) = {}'.format(v,code))
         # Save
         if code==0:
             vlist0.append(v)
             data[str(v)] = iout
-    print 80*'-'
+    print(80*'-')
     # Plot
     if plotflag:
         if series=='conc':
@@ -749,10 +749,10 @@ def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth
             rlist*=100. # In percents
             rmax = max(rmax,max(np.abs(rlist)))
             if verbose:
-                print 'tests.py @ 625:',k
-                print '    {:10s} {:5s} {:5s} {:5s} {:7s} {:5s} {:7s} {:5s}'.format('value','ctrue','cmeas','accu','accuR','prec','precR','inside?')
+                print('tests.py @ 625: {}'.format(k))
+                print('    {:10s} {:5s} {:5s} {:5s} {:7s} {:5s} {:7s} {:5s}'.format('value','ctrue','cmeas','accu','accuR','prec','precR','inside?'))
                 for cc,ww,xx,rr,ee in zip(clist,xlist,ylist,rlist,ikws['yerr']):
-                    print '    {:10.2f} {:5.2f} {:5.2f} {:5.2f} {:7.4f} {:5.2f} {:7.4f} {}'.format(ww,cc,xx,np.abs(cc-xx),rr,ee,100.*ee/cc,np.abs(cc-xx)<ee)
+                    print('    {:10.2f} {:5.2f} {:5.2f} {:5.2f} {:7.4f} {:5.2f} {:7.4f} {}'.format(ww,cc,xx,np.abs(cc-xx),rr,ee,100.*ee/cc,np.abs(cc-xx)<ee))
             if errorbars_res:
                 # del ikws['yerr']
                 ikws['yerr'] = ikws['yerr']/clist
@@ -807,7 +807,7 @@ def plot_series(series,data,vlist=None,clist=None,plotfile=None,nfwmeth=_nfwmeth
             os.mkdir(os.path.dirname(plotfile))
         plt.savefig(plotfile,bbox_inches='tight',
                     bbox_extra_artists=extra_artists)
-        print '    '+plotfile
+        print('    '+plotfile)
     # Return
     return
 
@@ -890,7 +890,7 @@ def avg_test(nerror=True,verbose=False,**kwargs):
                 out[m][k] = np.mean(vals)
                 out[m][k+'_std'] = np.std(vals)
                 if k == 'c':
-                    print str('{:10s}: '+len(vals)*'{:5.2f} ').format(m,*vals)
+                    print(str('{:10s}: '+len(vals)*'{:5.2f} ').format(m,*vals))
     # Return
     return code,out
 
@@ -1065,8 +1065,8 @@ def make_substr(filename,parfile,overwrite=False,version=-1,trialrun=False,
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite and not trialrun:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return
     snapdir = os.path.dirname(filename)
     if not os.path.isdir(snapdir):
@@ -1120,17 +1120,17 @@ def make_substr(filename,parfile,overwrite=False,version=-1,trialrun=False,
     if trialrun:
         r_sub = util.pos2rad(pos_sub)
         rho_sub0 = util.calc_rhoenc(mass_sub,r_sub,rvir2*rfrac/100.)
-        print 'rfrac  = {}'.format(rfrac)
-        print 'subrho = {} ({})'.format(rho_sub0/rho1,subrho)
-        print 'Primary'
-        print '  rvir  = {}'.format(rvir1)
-        print '  rho   = {}'.format(rho1)
-        print 'Secondary'
-        print '  rvir  = {}'.format(rvir2)
-        print '  rho   = {}'.format(rho2)
-        print 'Subhalo'
-        print '  rvir  = {} ({})'.format(r_sub.max(),rvir2*rfrac)
-        print '  rho   = {} ({})'.format(util.calc_rhoenc(mass_sub,r_sub,rvir2*rfrac/100.),rho_sub)
+        print('rfrac  = {}'.format(rfrac))
+        print('subrho = {} ({})'.format(rho_sub0/rho1,subrho))
+        print('Primary')
+        print('  rvir  = {}'.format(rvir1))
+        print('  rho   = {}'.format(rho1))
+        print('Secondary')
+        print('  rvir  = {}'.format(rvir2))
+        print('  rho   = {}'.format(rho2))
+        print('Subhalo')
+        print('  rvir  = {} ({})'.format(r_sub.max(),rvir2*rfrac))
+        print('  rho   = {} ({})'.format(util.calc_rhoenc(mass_sub,r_sub,rvir2*rfrac/100.),rho_sub))
     # Shift subhalo to correct position in parent
     pos_sub[:,0]+= subr*rvir1
     # Combine arrays
