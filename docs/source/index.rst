@@ -14,6 +14,7 @@ Contents:
    intro
    install
    config
+   tutorials
    code
 
 .. todo:: create straight forward tests
