@@ -341,7 +341,7 @@ def plotfit(r,ydat,rs=None,ms=None,G=1.,method='mass',
             plt.show()
         else:
             plt.savefig(plotfile,bbox_inches='tight',bbox_extra_artists=[leg])
-            print '    '+plotfile
+            print('    '+plotfile)
 
 def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
              hist=False,nbins=100,rmin=None,rmax=None,
