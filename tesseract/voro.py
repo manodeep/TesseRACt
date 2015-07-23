@@ -228,8 +228,8 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     # Run
     curdir = os.getcwd()
     os.chdir(os.path.dirname(exefile))
-#    if verbose:
-    print cmd
+    if verbose:
+        print cmd
     code = os.system(cmd)
     os.chdir(curdir)
     # Return code
