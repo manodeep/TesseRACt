@@ -1247,7 +1247,7 @@ def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
     # Return
     return fdelta,best_opt
 
-def _optimize_delta(nfwmeth=['voronoi'],filename=None,errors=False,niter=25,
+def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
                     delta0=200.,step0=0.1,overwrite=False,**kwargs):
     """Find the delta for which the measured concentration is equal to the 
     actual concentration.
@@ -1290,6 +1290,8 @@ def _optimize_delta(nfwmeth=['voronoi'],filename=None,errors=False,niter=25,
     import pickle
     # Get test parameters
     version = kwargs.pop('version',-1)
+    kwargs.setdefault('c',_default_conc)
+    c0 = kwargs['c']
     if errors:
         version = -1
     param = param_test(version=version,**kwargs)
@@ -1316,7 +1318,6 @@ def _optimize_delta(nfwmeth=['voronoi'],filename=None,errors=False,niter=25,
             icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True,**kwargs)
         else:
             icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,**param)
-        infw = infw[nfwmeth]
         if icode!=0:
             print icode,infw
             raise Exception('There was an error in computing the NFW '+
@@ -1324,7 +1325,7 @@ def _optimize_delta(nfwmeth=['voronoi'],filename=None,errors=False,niter=25,
                             '(step {}).'.format(i))
         print param.keys()
         print infw.keys()
-        ires = (infw['c']-param['c'])/param['c']
+        ires = (infw['c']-c0)/c0
         # Determine next step
         if i==0:
             istep = step0
