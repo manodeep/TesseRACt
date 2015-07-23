@@ -1177,7 +1177,7 @@ def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
     from scipy.optimize import curve_fit
     # Default functional form
     if fdelta is None:
-        fdelta = lambda x,a,b,c: return a*(x**b)+c
+        def fdelta(x,a,b,c): return a*(x**b)+c
     # Loop over values getting data
     data = [] ; best = []
     for v in var_list:
@@ -1242,8 +1242,9 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
         overwrite (Optional[bool]): If True, existing data is overwritten.
             (default = False)
         \*\*kwargs: Additional keyword arguments are used to identify the 
-            test halo that should be used. 
-            See :func:`tesseract.tests.param_test`.
+            test halo that should be used. The are passed to both
+            :func:`tesseract.tests.param_test` and 
+            :func:`tesseract.tests.avg_test`/:func:`tesseract.tests.run_test`.
 
     Returns:
         dict: Contains results from the iteration process used to optimze
@@ -1262,11 +1263,10 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     """
     import pickle
     # Get test parameters
+    version = kwargs.pop('version',-1)
     if errors:
-        kwargs['version'] = -1
-    else:
-        kwargs.setdefault('version',1)
-    param = param_test(**kwargs)
+        version = -1
+    param = param_test(version=version,**kwargs)
     # Get place to save data
     if filename is None:
         filename = os.path.join(_outputdir,'optimal_delta',
@@ -1286,8 +1286,12 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     idelta = delta0
     for i in range(niter):
         # Run NFW
-        icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=errors,**param)
+        if errors:
+            icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True,**kwargs)
+        else:
+            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,**param)
         if icode!=0:
+            print icode,infw
             raise Exception('There was an error in computing the NFW '+
                             'parameters for delta = {} '.format(idelta)+
                             '(step {}).'.format(i))
