@@ -337,8 +337,8 @@ def load_test(param=None,Mscl=1.,Rscl=1.,**kwargs):
         out['vol'] = voro.read_volume(volfile)
         out['vol']*=(Rscl**3.)
     else:
-        print 'Could not load volume file.'
-        print '    '+volfile
+        print('Could not load volume file.')
+        print('    '+volfile)
     # Return
     return out
 
@@ -1243,7 +1243,7 @@ def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
         axs[1][1].set_ylabel('Rho (vol)/ Rho (rad)')
         # Save
         plt.savefig(plotfile)
-        print '    '+plotfile
+        print('    '+plotfile)
     # Return
     return fdelta,best_opt
 
@@ -1299,6 +1299,8 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     if filename is None:
         filename = os.path.join(_outputdir,'optimal_delta',
                                 '{}_{}.dat'.format(param['idstr'],nfwmeth))
+    if not os.path.isdir(os.path.dirname(filename)):
+        os.mkdir(os.path.dirname(filename))
     # Load & return data if it exists
     if os.path.isfile(filename) and not overwrite:
         fd = open(filename,'r')
@@ -1319,12 +1321,10 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
         else:
             icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,**param)
         if icode!=0:
-            print icode,infw
+            print(icode,infw)
             raise Exception('There was an error in computing the NFW '+
                             'parameters for delta = {} '.format(idelta)+
                             '(step {}).'.format(i))
-        print param.keys()
-        print infw.keys()
         ires = (infw['c']-c0)/c0
         # Determine next step
         if i==0:
@@ -1346,12 +1346,12 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     # Create dictionary
     data = dict(delta=delta,resid=resid,steps=steps,nfws=nfws)
     # Get inner density
-    isnp = load_test(**param)
+    isnp = load_test(param)
     isnp['rad'] = util.pos2rad(isnp['pos'])
     idxvol = np.argmin(isnp['vol'])
     idxrad = np.argmin(isnp['rad'])
     rhomax_vol = isnp['mass'][idxvol]/isnp['vol'][idxrad]
-    rhomax_rad = isnp['mass'][idxrad]/util.rad2vol(isnp['rad'][idxrad])
+    rhomax_rad = isnp['mass'][idxrad]/util.sphvol(isnp['rad'][idxrad])
     data.update(rhomax_rad=rhomax_rad,
                 rhomax_vol=rhomax_vol)
     # Save & return
