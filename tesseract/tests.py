@@ -1145,3 +1145,183 @@ def make_substr(filename,parfile,overwrite=False,version=-1,trialrun=False,
     if not trialrun:
         io.write_snapshot(filename,mass,pos,overwrite=overwrite,format=_halofmt)
     return
+
+# ------------------------------------------------------------------------------
+# METHODS FOR CALIBRATION
+def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
+               plotfile=None,**kwargs):
+    """Fit the dependence of delta on some parameter.
+    
+    Args:
+        fdelta (Optional[func]): Handle for a function that takes the variable 
+            as the first argument and returns delta for that variable. 
+            Additional arguments are parameters that should be fit. If not 
+            provided a simple power-law is used.
+        var_name (Optional[str]): Name of variable that will be varied. This 
+            should be one of the test parameters taken as input by 
+            :func:`tesseract.tests.param_test`. (default = 'c')
+        var_list (Optional[list]): List of variables values that should be 
+            iterated over. (default = :attr:`tesseract.tests._list_conc`)
+        niter (Optional[int]): Number of iterations to perform in order to
+            optimize delta. (default = 25)
+        plotfile (Optional[str]): Full path to place where plot should be 
+            saved.
+        \*\*kwargs: Additional keyword arguments are passed to 
+            :func:`tesseract.tests._optimize_delta`.
+    
+    Returns:
+
+    Raises:
+
+    """
+    from scipy.optimize import curve_fit
+    # Default functional form
+    if fdelta is None:
+        fdelta = lambda x,a,b,c: return a*(x**b)+c
+    # Loop over values getting data
+    data = [] ; best = []
+    for v in var_list:
+        kwargs[var_name] = v
+        idata = _optimize_delta(niter=niter,**kwargs)
+        best.append(idata['delta'][niter-1])
+        data.append(idata)
+    # Fit
+    best_opt,best_cov = curve_fit(fdelta,np.array(var_list),np.array(best))
+    # Plot
+    if isinstance(plotfile,str):
+        import matplotlib.pyplot as plt
+        fig, axs = plt.subplots(2,2,squeeze=False)
+        # Loop over variables plotting convergence of delta
+        for i,v in enumerate(var_list):
+            idat = data[i]
+            axs[0][0].scatter(np.array(idat['delta'][:niter]),
+                              np.abs(np.array(idat['resid'][:niter])),
+                              label='{} = {}'.format(var_name,v))
+            axs[0][1].scatter(np.arange(niter),
+                              np.abs(np.array(idat['resid'][:niter])),
+                              label='{} = {}'.format(var_name,v))
+        axs[0][0].set_xlabel('Delta')
+        axs[0][0].set_ylabel('Residual')
+        axs[0][1].legend()
+        axs[0][1].set_xlabel('Step')
+        axs[0][1].set_ylabel('Residual')
+        # Plot funcitonal fit
+        vtest = np.linspace(min(var_list),max(var_list),100)
+        axs[1][0].plot(vtest,fdelta(vtest,*best_opt))
+        axs[1][0].scatter(var_list,best)
+        axs[1][0].set_xlabel(var_name)
+        axs[1][0].set_ylabel('Delta')
+        # Plot relative densities
+        axs[1][1].scatter(var_list,[idat['rhomax_vol']/idat['rhomax_rad'] for idat in data])
+        axs[1][1].set_xlabel(var_name)
+        axs[1][1].set_ylabel('Rho (vol)/ Rho (rad)')
+        # Save
+        plt.savefig(plotfile)
+        print '    '+plotfile
+    # Return
+    return fdelta,best_opt
+
+def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
+                    delta0=200.,step0=0.1,overwrite=False,**kwargs):
+    """Find the delta for which the measured concentration is equal to the 
+    actual concentration.
+
+    Args:
+        nfwmeth (Optional[str]): Method that should be used to measure the 
+            halo's concentration (default = 'voronoi').
+        filename (Optional[str]): Full path to the file where results should 
+            be saved. If not provided, a filename is created in the 
+            'optimal_delta' directory under :attr:`tesseract.tests._outputdir`.
+        errors (Optional[bool]): If True, the average result over all 
+            available versions is used. (default = False)
+        niter (Optional[int]): Number of iterations to perform in order to
+            optimize delta. (default = 25)
+        delta0 (Optional[float]): Delta to start iterations at. (default = 200)
+        step0 (Optional[float]): Factor that delta should be adjusted by at the 
+            first step. (default = 0.1)
+        overwrite (Optional[bool]): If True, existing data is overwritten.
+            (default = False)
+        \*\*kwargs: Additional keyword arguments are used to identify the 
+            test halo that should be used. 
+            See :func:`tesseract.tests.param_test`.
+
+    Returns:
+        dict: Contains results from the iteration process used to optimze
+            delta. Keys include:
+
+        * **delta** (list): Delta values tested at each step.
+        * **resid** (list): Fractional residuals in concentration for each step.
+        * **steps** (list): Fractional change in delta taken at each step.
+        * **nfws** (list): NFW parameter dictionary returned by
+            :func:`tesseract.tests.avg_test` at each step.
+
+    Raises:
+        Exception: If the NFW parameters are not successfully returned by a
+            step.
+    
+    """
+    import pickle
+    # Get test parameters
+    if errors:
+        kwargs['version'] = -1
+    else:
+        kwargs.setdefault('version',1)
+    param = param_test(**kwargs)
+    # Get place to save data
+    if filename is None:
+        filename = os.path.join(_outputdir,'optimal_delta',
+                                '{}_{}.dat'.format(param['idstr'],nfwmeth))
+    # Load & return data if it exists
+    if os.path.isfile(filename) and not overwrite:
+        fd = open(filename,'r')
+        data = pickle.load(fd)
+        fd.close()
+        return data
+    # Initialize things
+    delta = []
+    resid = []
+    steps = []
+    nfws = []
+    # Iterate
+    idelta = delta0
+    for i in range(niter):
+        # Run NFW
+        icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=errors,**param)
+        if icode!=0:
+            raise Exception('There was an error in computing the NFW '+
+                            'parameters for delta = {} '.format(idelta)+
+                            '(step {}).'.format(i))
+        ires = (infw['c']-param['c'])/param['c']
+        # Determine next step
+        if i==0:
+            istep = step0
+        else:
+            if abs(ires)<abs(resid[-1]):
+                istep = steps[-1]
+            else:
+                istep = -steps[-1]/2.
+        # Append things
+        delta.append(idelta)
+        resid.append(ires)
+        nfws.append(infw)
+        steps.append(istep)
+        if (i%10)==0:
+            print('{},{},{},{}'.format(i,idelta,istep,ires))
+        # Advance delta
+        idelta+=istep*idelta
+    # Create dictionary
+    data = dict(delta=delta,resid=resid,steps=steps,nfws=nfws)
+    # Get inner density
+    isnp = load_test(**param)
+    isnp['rad'] = util.pos2rad(isnp['pos'])
+    idxvol = np.argmin(isnp['vol'])
+    idxrad = np.argmin(isnp['rad'])
+    rhomax_vol = isnp['mass'][idxvol]/isnp['vol'][idxrad]
+    rhomax_rad = isnp['mass'][idxrad]/util.rad2vol(isnp['rad'][idxrad])
+    data.update(rhomax_rad=rhomax_rad,
+                rhomax_vol=rhomax_vol)
+    # Save & return
+    fd = open(filename,'w')
+    pickle.dump(data,fd)
+    fd.close()
+    return data

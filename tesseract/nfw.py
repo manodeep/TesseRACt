@@ -47,9 +47,9 @@ def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
         rho (Optional[np.ndarray]): (N,) Mean enclosed density at each r.
         menc (Optional[np.ndarray]): (N,) Enclosed mass at each r.
         delta (Optional[float]): Factor determining virial overdensity 
-            (default = `_default_delta`)
+            (default = :attr:`tesseract.nfw._default_delta`)
         rhoc (Optional[float]): Critical density in the same units as r and 
-            menc or rho (default = `_default_rhoc`)
+            menc or rho (default = :attr:`tesseract.nfw._default_rhoc`)
 
     Returns:
         rvir (float): Virial radius.
@@ -59,7 +59,6 @@ def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
         ValueError: If neither rho or menc is provided.
         Exception: If no part of the halo is not denser than the virial 
             overdensity.
-        
 
     .. todo:: Raise exception for halo that is entirely denser than viral?
 
@@ -73,20 +72,34 @@ def calc_virial(r,rho=None,menc=None,delta=None,rhoc=None):
         if menc is None:
             raise ValueError('Both rho and menc are None. Provided at least one.')
         rho = menc/util.sphvol(r)
+    if menc is None:
+        menc = rho*util.sphvol(r)
     # Find where density exceeds virial overdensity
     idxvir = (rho>=delrho)
     if not np.any(idxvir):
         raise Exception('Density does not exceed virial overdensity. delta*rhoc={}, min(rho)={}, max(rho)={}'.format(delrho,min(rho),max(rho)))
     if np.all(idxvir):
-        pass
-        #raise Exception('All densities exceed virial overdensity. delta*rhoc={}, min(rho)={}, max(rho)={}'.format(delrho,min(rho),max(rho)))
-    # Find this radius and mass starting from radius
-    rvir = np.max(r[idxvir])
-    mvir = delrho*util.sphvol(rvir)
+        import warnings
+        warnings.warn('All densities exceed virial overdensity. delta*rhoc={}, min(rho)={}, max(rho)={}\n '.format(delrho,min(rho),max(rho))+
+                      'Setting Mvir to Mtot and using it to calculate Rvir.')
+        from scipy.interpolate import UnivariateSpline
+        
+        s = UnivariateSpline(np.log10(rho),np.log10(r),k=2)
+        print min(r),10.**s(np.log10(max(rho)))
+        print max(r),10.**s(np.log10(min(rho)))
+        rvir = 10.**s(np.log10(delrho))
+        mvir = delrho*util.sphvol(rvir)
+        print rvir,mvir
+#        raise Exception('All densities exceed virial overdensity. delta*rhoc={}, min(rho)={}, max(rho)={}'.format(delrho,min(rho),max(rho)))
+    else:
+        # Find this radius and mass starting from radius
+        rvir = np.max(r[idxvir])
+        mvir = delrho*util.sphvol(rvir)
     # Return
     return rvir,mvir
 def calc_rvir(*args,**kwargs):
-    """Calculates virial radius. See `nfw.calc_virial` for details.
+    """Calculates virial radius. See :func:`tesseract.nfw.calc_virial` for 
+    details.
 
     Returns:
         rvir (float): Virial radius.
@@ -94,7 +107,8 @@ def calc_rvir(*args,**kwargs):
     """
     return get_virial(*args,**kwargs)[0]
 def calc_mvir(*args,**kwargs):
-    """Calculates virial mass. See `nfw.calc_virial` for details.
+    """Calculates virial mass. See :func:`tesseract.nfw.calc_virial` for 
+    details.
 
     Returns:
         mvir (float): Virial mass.
@@ -110,9 +124,9 @@ def calc_rhalf(r,menc,mvir=None,delta=None,rhoc=None):
         menc (np.ndarray): (N,) Enclosed mass at each radius.
         mvir (Optional[float]): Virial mass (provide to save time).
         delta (Optional[float]): Factor determining virial overdensity.
-            (default = `_default_delta`)
+            (default = :attr:`tesseract.nfw._default_delta`)
         rhoc (Optional[float]): Critical density in the same units as r and 
-            menc. (default = `_default_delta`)
+            menc. (default = :attr:`tesseract.nfw._default_delta`)
 
     Returns:
         float: Radius enclosing half the Virial mass.
@@ -160,7 +174,7 @@ def profile(r,ms=1.,rs=1.,G=1.,method='mass'):
         ms (Optional[float]): Scale mass. (default = 1)
         rs (Optional[float]): Scale radius. (default = 1)
         G (Optional[float]): Gravitational constant in correct units. 
-            Only used for `method = 'pot'`. (default = 1) 
+            Only used for ``method = 'pot'``. (default = 1) 
         method (Optional[str]): Type of profile that should be returned. 
             (default = 'mass') Valid values include:
                 'rho' : density profile
@@ -172,14 +186,14 @@ def profile(r,ms=1.,rs=1.,G=1.,method='mass'):
             each radius. 
 
     Raises:
-        ValueError: If `method` is not a recognized option.
+        ValueError: If ``method`` is not a recognized option.
 
     """
     if ms is None: ms = 1.
     if rs is None: rs = 1.
     if G is None: G = 1.
     # Set dimensionless parameter
-    rho0=ms/(4.*np.pi*(rs**3.))
+    rho0=ms/((4./3.)*np.pi*(rs**3.))
     s=r/rs
     # Calculate profile
     if   method=='rho' : out=rho0/(s*((1.0+s)**2.0))
@@ -190,7 +204,7 @@ def profile(r,ms=1.,rs=1.,G=1.,method='mass'):
     return out
 
 def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
-        plotflag=False,plotfile=None,**kwargs):
+        plotflag=False,plotfile=None,uselog=False,**kwargs):
     """Fit an NFW profile to provided data.
 
     Args:
@@ -199,7 +213,7 @@ def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
         rs (Optional[float]): Initial guess at scale radius. (default = 1)
         ms (Optional[float]): Initial guess at scale mass. (default = 1)
         G (Optional[float]): Gravitational constant in correct units. Only 
-            required for `method = 'pot'`. (default = 1)
+            required for ``method = 'pot'``. (default = 1)
         method (Optional[str]): Type of profile that should be fit to y. 
             (default = 'mass') Valid values include:
                 'rho' : density profile
@@ -208,6 +222,8 @@ def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
         plotflag (Optional[bool]): When True, the fit is plotted. 
             (default = False)
         plotfile (Optional[str]): Path to file where plot should be saved.
+        uselog (Optional[bool]): Set to True if the error function should be
+            computed in log space. (default = False)
         **kwargs: Additional keywords are passed to the minimize/leastsq 
             function from the scipy.optimize module, depending on if minimize 
             exists or not.
@@ -224,8 +240,12 @@ def fit(r,y,rs=1.,ms=1.,G=1.,method='mass',
     p0 = [ms,rs]
     bounds = [(0.,None),(0.,None)]
     # Create fit functions
-    fitfunc = lambda p,ri: profile(ri,ms=p[0],rs=p[1],method='mass')
-    errfunc = lambda p: fitfunc(p,r)-y
+    if uselog:
+        fitfunc = lambda p,ri: profile(ri,ms=p[0],rs=p[1],method='mass')
+        errfunc = lambda p: np.log10(fitfunc(p,r))-np.log10(y)
+    else:
+        fitfunc = lambda p,ri: profile(ri,ms=p[0],rs=p[1],method='mass')
+        errfunc = lambda p: fitfunc(p,r)-y
     # Fit
     p1,success = util.myleastsq(errfunc,p0,bounds=bounds,**kwargs)
     if success not in [1,2,3,4]:
@@ -247,7 +267,7 @@ def plotfit(r,ydat,rs=None,ms=None,G=1.,method='mass',
         rs (Optional[float]): Scale radius. If not provided, it is fit.
         ms (Optional[float]): Scale mass. If not provided, it is fit.
         G (Optional[float]): Gravitational constant in the correct units. Only used if
-            `method = 'pot'`. (default = 1)
+            ``method = 'pot'``. (default = 1)
         method (Optional[str]): Description of what profile ydat contains.
             (default = 'mass') Valid values include:
                 'rho' : density profile
@@ -264,7 +284,8 @@ def plotfit(r,ydat,rs=None,ms=None,G=1.,method='mass',
             in. If not provided, one is created.
         axs_res (Optional[plt.Axes]): Existing axes that profile should be 
             plotted in. If not provided, one is created.
-        **kwargs: Additional keyword arguments are passed to `nfw.fit`.
+        **kwargs: Additional keyword arguments are passed to 
+        :func:`tesseract.nfw.fit`.
 
     """
     import matplotlib.pyplot as plt
@@ -381,9 +402,9 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
         vpeak (Optional[float]): Peak circular velocity (saves time).
         rvpeak (Optional[float]): Radius where vpeak occurs (saves time).
         delta (Optional[float]): Factor determining virial overdensity. 
-            (default = `_default_delta`)
+            (default = :attr:`tesseract.nfw._default_delta`)
         rhoc (Optional[float]): Critical density in the same units as r and 
-            menc. (default = `_default_rhoc`)
+            menc. (default = :attr:`tesseract.nfw._default_rhoc`)
         G (Optional[float]): Gravitational constant in correct units. 
             (default = 1)
 
@@ -402,8 +423,8 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
                 rho0 (float): Normalizing density. 
 
     Raises:
-        ValueError: If `hist` is True and `m` is not provided.
-        ValueError: If provided `method` is unsupported.
+        ValueError: If ``hist`` is True and ``m`` is not provided.
+        ValueError: If provided ``method`` is unsupported.
 
     """
     # Set defaults
@@ -460,7 +481,11 @@ def calc_nfw(r,m=None,menc=None,method='rhalf',sortby=None,issorted=False,
     elif method in ['vpeak','vmax','prada2012']:
         c = concen_vpeak(vpeak,vvir,method='prada2012')
     elif method in ['fit','fitting','leastsq']:
-        ms,rs = fit(rarr,marr,method='mass',ms=mvir/2.,rs=rhalf)
+        # ms0 = mvir/2.
+        # rs0 = rhalf
+        rs0 = rvir/concen_rhalf(rhalf,rvir,method='lokas2001')
+        ms0 = mvir/_nfwgc(rvir/rs0)
+        ms,rs = fit(rarr,marr,method='mass',ms=ms0,rs=rs0)
         c = rvir/rs
     else: 
         raise ValueError('Unsupported method: {}'.format(method))

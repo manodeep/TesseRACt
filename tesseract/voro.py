@@ -804,7 +804,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             vol = read_volume(namefile('vols',param))
             vol*=(Rscl**3.)
             idxfin = np.where(vol>=0)[0]
-            idxcom = np.argmin(vols[idxfin])
+            idxcom = np.argmin(vol[idxfin])
             com = pos[idxfin[idxcom],:]
         elif isinstance(center,str) and center in ['mid']:
             com = np.array([(pos[:,i].min()+pos[:,i].max())/2. for i in range(3)])
