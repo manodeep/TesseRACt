@@ -1174,6 +1174,105 @@ def make_substr(filename,parfile,overwrite=False,version=-1,trialrun=False,
 
 # ------------------------------------------------------------------------------
 # METHODS FOR CALIBRATION
+def _calibrate_vor2rad(overwrite_config=False):
+    """Fit the calibration parameters for scaling raw volume-based 
+    concentrations to be on the same scale as traditional, radius-based 
+    concentrations.
+
+    Args:
+        overwrite_config (Optional[bool]): If True, the existing values of the 
+            'scale-conc-param' option in the 'voro-options' section of the 
+            tesseract user configuration file are overwritten with the returned 
+            values.
+
+    Returns:
+        list: Parameters for the volume-based to radius-based concentration 
+            scaling relation.
+
+    """
+    # Do fit for inverse conversion function
+    from .voro import _rad2vor_func as finv
+    finv,fit_opt = _fit_conc(fconc=finc,var_name='c',var_list=_list_conc)
+    # Overwrite config
+    if overwrite_config:
+        from . import voro,_config_file_usr
+        config_parser.set('voro-options','scale-conc-param',str(list(fit_opt)))
+        with open(_config_file_usr,'w') as fp:
+            config_parser.write(fp)
+        voro._vor2rad_param = list(fit_opt)
+    return fit_opt
+
+def _fit_conc(fconc=None,var_name='c',var_list=_list_conc,
+              plotfile=None,**kwargs):
+    """Fit the dependence of the raw volume based concentration on some 
+    parameter.
+    
+    Args:
+        fconc (Optional[func]): Handle for a function that takes the variable 
+            as the first argument and returns the raw volume based 
+            concentration for that variable. Additional arguments are 
+            parameters that should be fit. If not provided a simple power-law 
+            is used.
+        var_name (Optional[str]): Name of variable that will be varied. This 
+            should be one of the test parameters taken as input by 
+            :func:`tesseract.tests.param_test`. (default = 'c')
+        var_list (Optional[list]): List of variables values that should be 
+            iterated over. (default = :attr:`tesseract.tests._list_conc`)
+        plotfile (Optional[str]): Full path to place where plot should be 
+            saved.
+        \*\*kwargs: Additional keyword arguments are passed to 
+            :func:`tesseract.tests._optimize_delta`.
+    
+    Returns:
+        fconc (function): Handle for the function that takes the variable
+            as the first argument and returns the raw volume-based 
+            concentration for that variable. Additional arguments are 
+            parameters.
+        fit_opt (list): Best fit parameters for fconc.
+
+    """
+    from scipy.optimize import curve_fit
+    # Default functional form
+    if fconc is None:
+        fconc = lambda x,a,b,c: a*(x**b)+c
+    # Set arguments for test
+    version = kwargs.pop('version',-1)
+    if errors:
+        version = -1
+    # Loop over values getting NFW fits
+    conc = []
+    for v in var_list:
+        kwargs[var_name] = v
+        if errors:
+            icode,infw = avg_test(nfwmeth=nfwmeth,nerror=True,
+                                  dont_scale_voronoi=True,**kwargs)
+        else:
+            param = param_test(version=version,**kwargs)
+            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,
+                                  dont_scale_voronoi=True,**param)
+        if icode!=0:
+            print(icode,infw)
+            raise Exception('There was an error in computing the NFW '+
+                            'parameters for {} = {}.'.format(var_name,v))
+        conc.append(infw['c'])
+    # Fit
+    fit_opt,fit_cov = curve_fit(fconc,np.array(var_list),np.array(conc))
+    # Plot
+    if isinstance(plotfile,str):
+        import matplotlib.pyplot as plt
+        fig, axs = plt.subplots(1,1,squeeze=False)
+        # Plot funcitonal fit
+        vtest = np.linspace(min(var_list),max(var_list),100)
+        axs[0][0].plot(vtest,fconc(vtest,*fit_opt))
+        axs[0][0].scatter(var_list,conc)
+        axs[0][0].set_xlabel(var_name)
+        axs[0][0].set_ylabel('Concentration')
+        # Save
+        plt.savefig(plotfile)
+        print('    '+plotfile)
+    # Return
+    return fconc,fit_opt
+
 def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
                plotfile=None,**kwargs):
     """Fit the dependence of delta on some parameter.
@@ -1196,14 +1295,16 @@ def _fit_delta(fdelta=None,var_name='c',var_list=_list_conc,niter=25,
             :func:`tesseract.tests._optimize_delta`.
     
     Returns:
-
-    Raises:
+        fdelta (function): Handle for the function that takes the variable
+            as the first argument and returns delta for that variable.
+            Additional arguments are parameters.
+        best_opt (list): Best fit parameters for fdelta.
 
     """
     from scipy.optimize import curve_fit
     # Default functional form
     if fdelta is None:
-        def fdelta(x,a,b,c): return a*(x**b)+c
+        fdelta = lambda x,a,b,c: a*(x**b)+c
     # Loop over values getting data
     data = [] ; best = []
     for v in var_list:
@@ -1317,9 +1418,11 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     for i in range(niter):
         # Run NFW
         if errors:
-            icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True,**kwargs)
+            icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True,
+                                  dont_scale_voronoi=True,**kwargs)
         else:
-            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,**param)
+            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,
+                                  dont_scale_voronoi=True,**param)
         if icode!=0:
             print(icode,infw)
             raise Exception('There was an error in computing the NFW '+
