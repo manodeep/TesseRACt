@@ -1230,6 +1230,10 @@ def _fit_conc(fconc=None,var_name='c',var_list=_list_conc,
             parameters.
         fit_opt (list): Best fit parameters for fconc.
 
+    Raises:
+        Exception: If there is an error computing the NFW parameters for any 
+            of the variable values.
+
     """
     from scipy.optimize import curve_fit
     # Default functional form
@@ -1244,12 +1248,12 @@ def _fit_conc(fconc=None,var_name='c',var_list=_list_conc,
     for v in var_list:
         kwargs[var_name] = v
         if errors:
-            icode,infw = avg_test(nfwmeth=nfwmeth,nerror=True,
-                                  dont_scale_voronoi=True,**kwargs)
+            icode,infw = avg_test(nfwmeth=nfwmeth,nerror=True, # **kwargs)
+                                  dont_scale_voronoi=True,nfwfile=None,**kwargs)
         else:
             param = param_test(version=version,**kwargs)
-            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,
-                                  dont_scale_voronoi=True,**param)
+            icode,infw = run_test(nfwmeth=nfwmeth, # **param)
+                                  dont_scale_voronoi=True,nfwfile=None,**param)
         if icode!=0:
             print(icode,infw)
             raise Exception('There was an error in computing the NFW '+
@@ -1418,11 +1422,11 @@ def _optimize_delta(nfwmeth='voronoi',filename=None,errors=False,niter=25,
     for i in range(niter):
         # Run NFW
         if errors:
-            icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True,
-                                  dont_scale_voronoi=True,**kwargs)
+            icode,infw = avg_test(nfwmeth=nfwmeth,delta=idelta,nerror=True, # **kwargs)
+                                  dont_scale_voronoi=True,nfwfile=None,**kwargs)
         else:
-            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta,
-                                  dont_scale_voronoi=True,**param)
+            icode,infw = run_test(nfwmeth=nfwmeth,delta=idelta, # **param)
+                                  dont_scale_voronoi=True,nfwfile=None,**param)
         if icode!=0:
             print(icode,infw)
             raise Exception('There was an error in computing the NFW '+
