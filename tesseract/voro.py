@@ -17,6 +17,19 @@ Attributes:
     _installdir_qhull (str): Directory containing the Qhull source code.
     _makefile_qhull (str): Path to Qhull Makefile.
     _execfile_qhull (str): Path to the necessary Qhull header file.
+    _vor2rad_funcdict (dict): Dictionary of possible fitting functions to use 
+        for converting tessellation based concentrations to be on the same 
+        scale as traditional concentration.
+    _vor2rad_funcnmae (str): Name of the function set by the 'scale-conc-func' 
+        option in the 'voro-options' section of the config file.
+    _vor2rad_func (func): Function selected from 
+        :attr:`tesseract.voro._vor2rad_funcdict` by the 'scale-conc-func' 
+        option in the 'voro-options' section of the config file.
+    _rad2vor_func (func): Inverse of :attr:`tesseract.voro._vor2rad_func`.
+    _vor2rad_param (list): Parameters for the scaling function stored in 
+        :attr:`tesseract.voro._vor2rad_func`. This is set by the 
+        'scale-conc-param' option in the 'voro-options' section of the config 
+        file. 
     _paramlist (list): All vorovol parameters.
     _paramopt (list): Optional vorovol parameters.
 
@@ -50,7 +63,7 @@ else:
     qstr = 'Please enter the path to an existing directory where qhull should be installed: '
     _qhulldir = os.path.expanduser(raw_input(qstr).strip())
     while not os.path.isdir(_qhulldir):
-        print 'That is not a valid directory.'
+        print('That is not a valid directory.')
         _qhulldir = os.path.expanduser(raw_input(qstr).strip())
     # Add option to config file
     if not config_parser.has_section('qhull'):
@@ -61,9 +74,9 @@ else:
     # Unpack the tar file
     _qhulltar = os.path.join(_installdir,'qhull2002.1.tar')
     if os.path.isdir(os.path.join(_qhulldir,'qhull2002.1')):
-        print 'There is already a qhull installation there. No new installation necessary.'
+        print('There is already a qhull installation there. No new installation necessary.')
     else:
-        print 'Unpacking Qhull in {}...'.format(_qhulldir)
+        print('Unpacking Qhull in {}...'.format(_qhulldir))
         os.system('tar -C {} -xf {}'.format(_qhulldir,_qhulltar))
 
 # Qhull files
@@ -71,6 +84,15 @@ _installdir_qhull = os.path.join(_qhulldir,'qhull2002.1','src')
 _makefile_qhull = os.path.join(_installdir_qhull,'Makefile')
 _execfile_qhull = os.path.join(_installdir_qhull,'qhull_a.h')
 os.environ['QHULLSRCDIR'] = _installdir_qhull
+
+# Conversion for Voronoi based concentration
+_vor2rad_funcdict = {'exp': lambda x,a,b: a*(x**b),
+                     'exp_inv': lambda x,a,b: (x/a)**(1./b)}
+_vor2rad_funcname = config_parser.get('voro-options','scale-conc-func').strip()
+_vor2rad_func = _vor2rad_funcdict[_vor2rad_funcname]
+_rad2vor_func = _vor2rad_funcdict[_vor2rad_funcname+'_inv']
+_vor2rad_param = map(float,config_parser.get('voro-options',
+                                             'scale-conc-param').split(','))
 
 # Parameter file options
 _paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
@@ -119,7 +141,7 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
     # Create snapshot
     snapfile = param['PositionFile']
     if os.path.isfile(snapfile):
-        print 'Snapshot already exists. Using it.'
+        print('Snapshot already exists. Using it.')
     else:
         from . import io
         if isinstance(mass,type(None)):
@@ -149,13 +171,13 @@ def _tessellate(pos):
     import ctypes
     from ctypes.util import find_library
     if not os.path.isfile(_sharedlib_vozutil):
-        print _sharedlib_vozutil
+        print(_sharedlib_vozutil)
         make_library('libvozutil.so')
     os.environ['LD_LIBRARY_PATH'] = os.path.dirname(_sharedlib_vozutil)+':'+\
         os.environ['LD_LIBRARY_PATH']
     libvozutil = ctypes.CDLL(_sharedlib_vozutil,mode=ctypes.RTLD_GLOBAL)
 #    libvozutil = ctypes.cdll.LoadLibrary(_sharedlib_vozutil)
-    print dir(libvozutil)
+    print(dir(libvozutil))
     raise Exception('This funciton is a work in progress. Do not use it.')
 
 # ------------------------------------------------------------------------------
@@ -208,8 +230,8 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     volfile = namefile('vols',param)
     if os.path.isfile(volfile) and not overwrite:
         if verbose:
-            print 'voro.py @ 63: Voronoi output already exists and overwrite not set.'
-            print '    '+volfile
+            print('voro.py @ 63: Voronoi output already exists and overwrite not set.')
+            print('    '+volfile)
         return 0
     # Compile executable if it does not exists
     if not os.path.isfile(exefile) or recompile:
@@ -229,7 +251,7 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
     curdir = os.getcwd()
     os.chdir(os.path.dirname(exefile))
     if verbose:
-        print cmd
+        print(cmd)
     code = os.system(cmd)
     os.chdir(curdir)
     # Return code
@@ -525,6 +547,7 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
                     * 1: Gadget snapshot
                     * 2: Buildgal TREEBI files
                     * 3: BGC2 halo catalogue
+                    * 4: Tipsy snapshot
 
             * ParticleType (int): Code specifying what particle type should be
                 loaded from the snapshot. This is only used if 
@@ -567,8 +590,8 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return read_param(filename)
     # Read base file if provided
     if basefile is not None:
@@ -605,8 +628,8 @@ def write_param(filename,param,overwrite=False):
     optpar = copy.deepcopy(_paramopt)
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
-        print 'Specified file already exists and overwrite not set.'
-        print '    '+filename
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
         return
     # Add optional parameters
     if param.get('PeriodicBoundariesOn',1)==0:
@@ -688,7 +711,7 @@ def read_param(filename):
 # METHODS TO COMPUTE NFW
 def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             ownfw=False,plotflag=False,plotfile=None,residuals=True,delta=None,
-            center=False,Mscl=1.,Rscl=1.,**kwargs):
+            center=False,dont_scale_voronoi=False,Mscl=1.,Rscl=1.,**kwargs):
     """Returns NFW parameters found using the specified method(s). 
 
     Args:
@@ -735,6 +758,10 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
                * 'vol': smallest volume
                * 'mid': middle of particles (avg of min and max for x,y,z)
 
+       dont_scale_voronoi (Optional[bool]): Set to True if concentrations 
+           computed using Voronoi tessellation volumes should not be scaled 
+           using the function :attr:`tesseract.voro._vor2rad_func`
+           and parameters :attr:`tesseract.voro._vor2rad_param`.
        Rscl (Optional[float]): Value to scale positions and volumes by to 
            change units. (default = 1.0)
        Mscl (Optional[float]): Value to scale masses by to change units.
@@ -865,7 +892,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             #rho = mass[idxfin][idxsort]/vol[idxfin][idxsort]
             # rvir,mvir = nfw.calc_virial(volrad,rho=rho,delta=idelta,
             #                             rhoc=kwargs.get('rhoc',None))
-            #print 'voro.py @ 424: rvir,mvir = ',rvir,mvir
+            #print('voro.py @ 424: rvir,mvir = ',rvir,mvir)
             # Get nfw params
             out[m] = nfw.calc_nfw(volrad,m=mass[idxfin][idxsort],
                                   method=vorometh,issorted=True,
@@ -873,11 +900,13 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
                                   axs=axs,axs_res=axs_res,label=m.title(),
                                   color=colors[i],delta=idelta,**kwargs)
             # Scale based on voronoi radii calibration
-            #fit_vor2rad = [1.20765393, 0.96956452]
-#            fit_vor2rad = [ 1./1.24032053,  1./0.95997943]
-            fit_vor2rad = [ 0.84497027,  1.02418653]
-            c = out[m]['c']
-            out[m]['c'] = fit_vor2rad[0]*(c**fit_vor2rad[1])
+            if not dont_scale_voronoi:
+                #fit_vor2rad = [1.20765393, 0.96956452]
+                #fit_vor2rad = [ 1./1.24032053,  1./0.95997943]
+                #fit_vor2rad = [ 0.84497027,  1.02418653] # << use this one!
+                c = out[m]['c']
+                out[m]['c'] = _vor2rad_func(c,**_vor2rad_param)
+                #out[m]['c'] = fit_vor2rad[0]*(c**fit_vor2rad[1])
         # Radial based methods
         else:
             if delta is None:
@@ -909,7 +938,7 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
             plt.show()
         else:
             plt.savefig(plotfile,bbox_inches='tight',bbox_extra_artists=[leg])
-            print '    '+plotfile
+            print('    '+plotfile)
     # Return output
     if not isinstance(method,list):
         return out[method]
