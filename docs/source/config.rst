@@ -24,6 +24,16 @@ Options for controlling how NFW profile parameters are computed.
 **default-delta**
    The default value used to define the virial over-density. This is used to calculate the virial radius and mass of a halo. (200 by default)
 
+Voro Options
+============
+
+Options for controlling how tessellation is performed and used to compute concentration.
+
+**scale-conc-func**
+   String identifying what function should be used to scale concentrations computed using tessellation volumes to be on the same scale as concentrations computed using traditional techniques.
+**scale-conc-param**
+   Series of float parameters for the scaling function **scale-conc-func**.
+
 Test Options
 ============
 

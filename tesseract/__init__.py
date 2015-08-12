@@ -23,19 +23,24 @@ tests
 """
 
 # Basic dependencies
-import ConfigParser
 import os
 import shutil
+import sys
+# Python 3x: ConfigParser replaced by configparser
+if (sys.version_info > (3, 0)):
+    import configparser
+else:
+    import ConfigParser as configparser
 
 # Initialize config file
 _config_file_def = os.path.join(os.path.dirname(__file__),"default_config.ini")
 _config_file_usr = os.path.expanduser("~/.tessrc")
 if not os.path.isfile(_config_file_usr):
-    print 'Creating user config file: {}'.format(_config_file_usr)
+    print('Creating user config file: {}'.format(_config_file_usr))
     shutil.copyfile(_config_file_def,_config_file_usr)
 
 # Read config file
-config_parser = ConfigParser.ConfigParser()
+config_parser = configparser.ConfigParser()
 config_parser.optionxform = str
 config_parser.read(_config_file_def)
 config_parser.read(_config_file_usr) # Overrides defaults with user options

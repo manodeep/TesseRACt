@@ -53,7 +53,7 @@ and try to access the documentation::
 
    >>> help(tesseract)
 
-Additional tests can be found in :doc:`tests`.
+Additional tests can be found in :doc:`tutorials`.
 
 The First Import
 ================
