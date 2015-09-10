@@ -7,6 +7,8 @@ This module provides the classes and methods necessary for computing and
 using Voronoi diagrams to compute concentration.
 
 Attributes:
+    _tesspkg (str): String describing what package should be used for the 
+        tessellation.
     _installdir (str): Directory containing the distribution installation. 
     _installdir_vorvol (str): Directory containing the `vorovol` source code.
     _example_parfile (str): Path to example parameter file.
@@ -30,10 +32,11 @@ Attributes:
         :attr:`tesseract.voro._vor2rad_func`. This is set by the 
         'scale-conc-param' option in the 'voro-options' section of the config 
         file. 
-    _paramlist (list): All vorovol parameters.
-    _paramopt (list): Optional vorovol parameters.
+    _paramlist (list): All parameters for the tessellation execuatable.
+    _paramopt (list): Optional parameters for the tessellation executable.
 
 .. todo:: suppress vorovol output from qhull 
+.. todo:: phull is not currently distributed with tesseract
 
 """
 
@@ -45,45 +48,68 @@ import numpy as np
 from . import util
 from . import config,config_parser,_config_file_usr
 
+_tesspkg = config_parser.get('general','tess-package').strip()
+
 # Package info
 _installdir = os.path.dirname(os.path.realpath(__file__))
-_installdir_vorvol = os.path.join(_installdir,'vorovol')
-_example_parfile = os.path.join(_installdir,'example.param')
 
-# Vorovol files
-_makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
-_execfile_vorovol = os.path.join(_installdir_vorvol,'vorovol')
-_sharedlib_vozutil = os.path.join(_installdir_vorvol,'lib','libvozutil.so')
-
-# Qhull installation
-if config_parser.has_option('qhull','install-dir'):
-    _qhulldir = config_parser.get('qhull','install-dir').strip()
-else:
-    # Ask user for qhull directory
-    qstr = 'Please enter the path to an existing directory where qhull should be installed: '
-    _qhulldir = os.path.expanduser(raw_input(qstr).strip())
-    while not os.path.isdir(_qhulldir):
-        print('That is not a valid directory.')
-        _qhulldir = os.path.expanduser(raw_input(qstr).strip())
-    # Add option to config file
-    if not config_parser.has_section('qhull'):
-        config_parser.add_section('qhull')
-    config_parser.set('qhull','install-dir',_qhulldir)
-    with open(_config_file_usr,'w') as fp:
-        config_parser.write(fp)
-    # Unpack the tar file
-    _qhulltar = os.path.join(_installdir,'qhull2002.1.tar')
-    if os.path.isdir(os.path.join(_qhulldir,'qhull2002.1')):
-        print('There is already a qhull installation there. No new installation necessary.')
+# Phull files
+if tesspkg == 'phull':
+    if config_parser.has_option('phull','install-dir'):
+        _installdir_vorvol = config_parser.get('phull','install-dir').strip()
     else:
-        print('Unpacking Qhull in {}...'.format(_qhulldir))
-        os.system('tar -C {} -xf {}'.format(_qhulldir,_qhulltar))
+        # Ask user for phull directory
+        qstr = 'Please enter the path to an existing phull installation: '
+        _installdir_vorvol = os.path.expanduser(raw_input(qstr).strip())
+        while not os.path.isdir(_installdir_vorvol):
+            print('That is not a valid directory.')
+            _installdir_vorvol = os.path.expanduser(raw_input(qstr).strip())
+        # Add option to config file
+        if not config_parser.has_section('phull'):
+            config_parser.add_section('phull')
+        config_parser.set('phull','install-dir',_installdir_vorvol)
+        with open(_config_file_usr,'w') as fp:
+            config_parser.write(fp)
+    _example_parfile = os.path.join(_installdir_vorvol,'example.param')
+    _makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
+    _execfile_vorovol = os.path.join(_installdir_vorvol,'phull')
+# Vorovol files
+else:
+    _installdir_vorvol = os.path.join(_installdir,'vorovol')
+    _example_parfile = os.path.join(_installdir,'example.param')
+    _makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
+    _execfile_vorovol = os.path.join(_installdir_vorvol,'vorovol')
+    _sharedlib_vozutil = os.path.join(_installdir_vorvol,'lib','libvozutil.so')
 
-# Qhull files
-_installdir_qhull = os.path.join(_qhulldir,'qhull2002.1','src')
-_makefile_qhull = os.path.join(_installdir_qhull,'Makefile')
-_execfile_qhull = os.path.join(_installdir_qhull,'qhull_a.h')
-os.environ['QHULLSRCDIR'] = _installdir_qhull
+    # Qhull installation
+    if config_parser.has_option('qhull','install-dir'):
+        _qhulldir = config_parser.get('qhull','install-dir').strip()
+    else:
+        # Ask user for qhull directory
+        qstr = 'Please enter the path to an existing directory where qhull should be installed: '
+        _qhulldir = os.path.expanduser(raw_input(qstr).strip())
+        while not os.path.isdir(_qhulldir):
+            print('That is not a valid directory.')
+            _qhulldir = os.path.expanduser(raw_input(qstr).strip())
+        # Add option to config file
+        if not config_parser.has_section('qhull'):
+            config_parser.add_section('qhull')
+        config_parser.set('qhull','install-dir',_qhulldir)
+        with open(_config_file_usr,'w') as fp:
+            config_parser.write(fp)
+        # Unpack the tar file
+        _qhulltar = os.path.join(_installdir,'qhull2002.1.tar')
+        if os.path.isdir(os.path.join(_qhulldir,'qhull2002.1')):
+            print('There is already a qhull installation there. No new installation necessary.')
+        else:
+            print('Unpacking Qhull in {}...'.format(_qhulldir))
+            os.system('tar -C {} -xf {}'.format(_qhulldir,_qhulltar))
+
+    # Qhull files
+    _installdir_qhull = os.path.join(_qhulldir,'qhull2002.1','src')
+    _makefile_qhull = os.path.join(_installdir_qhull,'Makefile')
+    _execfile_qhull = os.path.join(_installdir_qhull,'qhull_a.h')
+    os.environ['QHULLSRCDIR'] = _installdir_qhull
 
 # Conversion for Voronoi based concentration
 _vor2rad_funcdict = {'exp': lambda x,a,b: a*(x**b),
@@ -95,14 +121,21 @@ _vor2rad_param = map(float,config_parser.get('voro-options',
                                              'scale-conc-param').split(','))
 
 # Parameter file options
-_paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
-              'Border','BoxSize','PositionFile','PositionFileFormat','OutputDir',
-              'OutputAdjacenciesOn','MaxNumSnapshot',
-              'DecimateInputBy','SquishY','SquishZ',
-              'ParticleType','BgTreebiNskip','Bgc2HaloId']
-_paramopt = ['NumDivide','OutputAdjacenciesOn','MaxNumSnapshot',
-             'DecimateInputBy','SquishY','SquishZ',
-             'ParticleType','BgTreebiNskip','Bgc2HaloId']
+if _tesspkg == 'phull':
+    _paramlist = ['PositionFile','PositionFileFormat','FilePrefix','FileSuffix',
+                  'PeriodicBoundariesOn','BoxSize','ParticleType',
+                  'BgTreebiNskip','Bgc2HaloId','OutputDir','DecimateInputBy']
+    _paramopt = ['FileSuffix','PeriodicBoundariesOn','ParticleType',
+                 'BgTreebiNskip','Bgc2HaloId','DecimateInputBy']
+else:
+    _paramlist = ['FilePrefix','FileSuffix','NumDivide','PeriodicBoundariesOn',
+                  'Border','BoxSize','PositionFile','PositionFileFormat',
+                  'OutputDir','OutputAdjacenciesOn','MaxNumSnapshot',
+                  'DecimateInputBy','SquishY','SquishZ',
+                  'ParticleType','BgTreebiNskip','Bgc2HaloId']
+    _paramopt = ['NumDivide','OutputAdjacenciesOn','MaxNumSnapshot',
+                 'DecimateInputBy','SquishY','SquishZ',
+                 'ParticleType','BgTreebiNskip','Bgc2HaloId']
 
 def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
     """Returns the tesselation volumes for a set of particle masses and 
@@ -295,14 +328,16 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
         makefile (Optional[str]): Path to vorovol Makefile. If not provided,
             :attr:`_makefile_vorovol` is used.
         makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
-            provided, :attr:`_makefile_qhull` is used.
+            provided, :attr:`_makefile_qhull` is used. Not required if the
+            tessellation package is phull.
 
     """
     # Check for required qhull library
-    execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
-    if not os.path.isfile(execfile_qhull):
-        make_qhull(makefile_qhull)
-    make(makefile,product=os.path.join(os.path.dirname(makefile),'vorovol'))
+    if _tesskpg == 'vorovol':
+        execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
+        if not os.path.isfile(execfile_qhull):
+            make_qhull(makefile_qhull)
+    make(makefile,product=os.path.join(os.path.dirname(makefile),tesspkg))
     return
 
 def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
@@ -315,13 +350,15 @@ def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
         makefile (Optional[str]): Path to vorovol Makefile. If not provided, 
             :attr:`_makefile_vorovol` is used.
         makefile_qhull (Optional[str]): Path to qhull Makefile. If not 
-            provided, :attr:`_makefile_qhull` is used.
+            provided, :attr:`_makefile_qhull` is used. Not required if the
+            tessellation package is phull.
 
     """
     # Check for required qhull library
-    execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
-    if not os.path.isfile(execfile_qhull):
-        make_qhull(makefile_qhull)
+    if _tesskpg == 'vorovol':
+        execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
+        if not os.path.isfile(execfile_qhull):
+            make_qhull(makefile_qhull)
     # Create library directory
     libdir = os.path.join(os.path.dirname(makefile),'lib')
     if not os.path.isdir(libdir):
@@ -587,6 +624,8 @@ def make_param(filename,basefile=None,overwrite=False,**kwargs):
         to the file. If the file already exists and overwrite is not set,
         these will be the parameters loaded form the existing file.
 
+    .. todo:: update docs to reflect parameters that phull does not use
+
     """
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
@@ -632,7 +671,7 @@ def write_param(filename,param,overwrite=False):
         print('    '+filename)
         return
     # Add optional parameters
-    if param.get('PeriodicBoundariesOn',1)==0:
+    if param.get('PeriodicBoundariesOn',0)==0:
         optpar+=['BoxSize']
     # Check for missing parameters
     missing = []
