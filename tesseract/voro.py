@@ -54,7 +54,7 @@ _tesspkg = config_parser.get('general','tess-package').strip()
 _installdir = os.path.dirname(os.path.realpath(__file__))
 
 # Phull files
-if tesspkg == 'phull':
+if _tesspkg == 'phull':
     if config_parser.has_option('phull','install-dir'):
         _installdir_vorvol = config_parser.get('phull','install-dir').strip()
     else:
@@ -73,6 +73,8 @@ if tesspkg == 'phull':
     _example_parfile = os.path.join(_installdir_vorvol,'example.param')
     _makefile_vorovol = os.path.join(_installdir_vorvol,'Makefile')
     _execfile_vorovol = os.path.join(_installdir_vorvol,'phull')
+
+    _makefile_qhull = ''
 # Vorovol files
 else:
     _installdir_vorvol = os.path.join(_installdir,'vorovol')
@@ -337,7 +339,7 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
         execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
         if not os.path.isfile(execfile_qhull):
             make_qhull(makefile_qhull)
-    make(makefile,product=os.path.join(os.path.dirname(makefile),tesspkg))
+    make(makefile,product=os.path.join(os.path.dirname(makefile),_tesspkg))
     return
 
 def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
