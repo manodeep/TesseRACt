@@ -48,11 +48,11 @@ def register_snapshot_format(code):
 def display_snapshot_formats():
     """Prints information on the registered snapshot formats."""
     print(80*'=')
-    print('{:4s}  {:20s}  {}'.format('code','name','description'))
+    print('{:4s}  {:20s}  {:10s}  {}'.format('code','name','alias','description'))
     print(80*'-')
     for c in sorted(_snapshot_formats.keys()):
         f = _snapshot_formats[c]
-        print('{:4d}  {:20s}  {}'.format(c,f.__name__,f.__doc__))
+        print('{:4d}  {:20s}  {:10s}  {}'.format(c,f.__name__,f.alias,f.__doc__))
     print(80*'=')
 
 # ------------------------------------------------------------------------------
@@ -146,6 +146,12 @@ class cStructDict(object):
 # GENERAL SNAPSHOT FILE HANDLING
 class Snapshot(object):
     """Base class for snapshot formats."""
+    @property
+    def alias(self):
+        if hasattr(self,'_alias'):
+            return self._alias
+        else:
+            return ''
     @property
     def code(self):
         """Integer code used to reference the snapshot format."""
@@ -264,6 +270,7 @@ def convert_snapshot(filename1,format1,filename2,format2,
 @register_snapshot_format(0)
 class UnformattedBinary(Snapshot):
     """Unformatted f77 binary snapshot class."""
+    _alias = 'unfbi77'
     def read(self,*args,**kwargs):
         """See `io.read_unfbi77`."""
         return read_unfbi77(*args,**kwargs)
@@ -302,12 +309,14 @@ def read_unfbi77(filename,return_npart=False,dtype='float32'):
 
     Returns:
         mass (np.ndarray): (N,) Particle masses.
-        pos (np.ndarray): (N,3) Particle positions.
+        pos (np.ndarray): (N,ndim) Particle positions.
 
     Raises:
         TypeError: If a type other than `np.float32` is provided.
         IOError: If the 4 bytes before any block does not match the size of the
             block that is read in.
+
+    .. todo:: number of particles stored as long int
 
     """
     import struct
@@ -317,12 +326,22 @@ def read_unfbi77(filename,return_npart=False,dtype='float32'):
         raise TypeError("vorvol assumes arrays are 32-bit floats.")
     # Open file
     fd = open(filename,'rb')
-    # Read in number of particles
+    # Read in number of dimensions
     recl = struct.unpack('i',fd.read(4))[0]
     if recl != np.dtype('int32').itemsize:
         raise IOError('Error reading number of particles from file.')
-    nout = struct.unpack('i',fd.read(recl))[0]
+    ndim = struct.unpack('i',fd.read(recl))[0]
     recl = struct.unpack('i',fd.read(4))[0]
+    # Read in number of particles
+    if (ndim > 4):
+        nout = ndim
+        ndim = 3
+    else:
+        recl = struct.unpack('i',fd.read(4))[0]
+        if recl != np.dtype('int32').itemsize:
+            raise IOError('Error reading number of particles from file.')
+        nout = struct.unpack('i',fd.read(recl))[0]
+        recl = struct.unpack('i',fd.read(4))[0]
     if return_npart: return nout
     # Read in masses
     recl = struct.unpack('i',fd.read(4))[0]
@@ -331,25 +350,14 @@ def read_unfbi77(filename,return_npart=False,dtype='float32'):
     mass = np.fromfile(fd,dtype=dtype,count=nout)
     recl = struct.unpack('i',fd.read(4))[0]
     # Read in x,y,z positions
-    pos = np.zeros((nout,3),dtype=np.float32)
-    # X
-    recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*dtype.itemsize):
-        raise IOError('Error reading x positions from file.')
-    pos[:,0] = np.fromfile(fd,dtype=dtype,count=nout)
-    recl = struct.unpack('i',fd.read(4))[0]
-    # Y
-    recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*dtype.itemsize):
-        raise IOError('Error reading x positions from file.')
-    pos[:,1] = np.fromfile(fd,dtype=dtype,count=nout)
-    recl = struct.unpack('i',fd.read(4))[0]
-    # Z
-    recl = struct.unpack('i',fd.read(4))[0]
-    if recl != (nout*dtype.itemsize):
-        raise IOError('Error reading x positions from file.')
-    pos[:,2] = np.fromfile(fd,dtype=dtype,count=nout)
-    recl = struct.unpack('i',fd.read(4))[0]
+    pos = np.zeros((nout,ndim),dtype=np.float32)
+    for idim in range(ndim):
+        recl = struct.unpack('i',fd.read(4))[0]
+        if recl != (nout*dtype.itemsize):
+            raise IOError('Error reading dimension {:d}'.format(idim)+
+                          ' of positions from file.')
+        pos[:,idim] = np.fromfile(fd,dtype=dtype,count=nout)
+        recl = struct.unpack('i',fd.read(4))[0]
     # Close and return
     fd.close()
     return mass,pos
@@ -360,12 +368,14 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
     Args:
         filename (str): Full path to file that data should be written to.
         mass (np.ndarray): (N,) Particle masses.
-        pos (np.ndarray): (N,3) Particle positions.
+        pos (np.ndarray): (N,ndim) Particle positions.
         overwrite (Optional[bool]): If True and `filename` already exists, it 
             is overwritten. (default = False)
 
     Raises:
         TypeError: If mass or pos does not have a data type of float32.
+
+    .. todo:: number of particles stored as long int
 
     """
     import struct
@@ -378,10 +388,14 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
     dtype = np.dtype('float32')
     if mass.dtype!=dtype or pos.dtype!=dtype:
         raise TypeError("vorvol assumes arrays are 32-bit floats.")
+    nout,ndim = pos.shape
     # Open file
     fd = open(filename,'wb')
+    # Write dimensions
+    fd.write(struct.pack('i',np.dtype('int32').itemsize))
+    fd.write(struct.pack('i',ndim))
+    fd.write(struct.pack('i',np.dtype('int32').itemsize))
     # Write number of particles
-    nout = len(mass)
     fd.write(struct.pack('i',np.dtype('int32').itemsize))
     fd.write(struct.pack('i',nout))
     fd.write(struct.pack('i',np.dtype('int32').itemsize))
@@ -389,18 +403,11 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
     fd.write(struct.pack('i',nout*dtype.itemsize))
     mass.tofile(fd)
     fd.write(struct.pack('i',nout*dtype.itemsize))
-    # X Positions
-    fd.write(struct.pack('i',nout*dtype.itemsize))
-    pos[:,0].tofile(fd)
-    fd.write(struct.pack('i',nout*dtype.itemsize))
-    # Y Positions
-    fd.write(struct.pack('i',nout*dtype.itemsize))
-    pos[:,1].tofile(fd)
-    fd.write(struct.pack('i',nout*dtype.itemsize))
-    # Z Positions
-    fd.write(struct.pack('i',nout*dtype.itemsize))
-    pos[:,2].tofile(fd)
-    fd.write(struct.pack('i',nout*dtype.itemsize))
+    # Positions
+    for idim in range(ndim):
+        fd.write(struct.pack('i',nout*dtype.itemsize))
+        pos[:,idim].tofile(fd)
+        fd.write(struct.pack('i',nout*dtype.itemsize))
     # Close and return
     fd.close()
     return
@@ -410,6 +417,7 @@ def write_unfbi77(filename,mass,pos,overwrite=False):
 @register_snapshot_format(1)
 class Gadget2(Snapshot):
     """Gadget2 Type 1 Snapshot"""
+    _alias = 'gadget'
     def read(self,*args,**kwargs):
         """Reads data from a Gadget snapshot.
         
@@ -667,6 +675,7 @@ class GadgetHeaderStruct(cStructDict):
 @register_snapshot_format(2)
 class BuildgalTreebi(Snapshot):
     """Buildgal TREEBI snapshot."""
+    _alias = 'bgtreebi'
     def read(self,*args,**kwargs):
         """See `io.read_bgtreebi`."""
         return read_bgtreebi(*args,**kwargs)
@@ -780,6 +789,7 @@ def write_bgtreebi(filename,mass,pos,overwrite=False):
 @register_snapshot_format(3)
 class Bgc2HaloCatalogue(Snapshot):
     """BGC2 Halo Catalogue"""
+    _alias = 'bgc2'
     def read(self,*args,**kwargs):
         """See `io.read_bgc2halo`."""
         return read_bgc2halo(*args,**kwargs)
@@ -1071,6 +1081,7 @@ class Bgc2PartStruct(cStructDict):
 @register_snapshot_format(4)
 class Tipsy(Snapshot):
     """Tipsy Snapshot"""
+    _alias = 'tipsy'
     def read(self,*args,**kwargs):
         """See `io.read_tipsy`."""
         return read_tipsy(*args,**kwargs)
