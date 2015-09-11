@@ -736,9 +736,8 @@ def read_bgtreebi(filename,nskip=0,return_npart=False):
     # Read positions
     for i in range(nout):
         posstr = fd.readline().strip().split()
-        pos[i,0] = np.float32(posstr[0])
-        pos[i,1] = np.float32(posstr[1])
-        pos[i,2] = np.float32(posstr[2])
+        for j in range(dim):
+            pos[i,j] = np.float32(posstr[j])
     # Close and return
     fd.close()
     return mass[nskip:],pos[nskip:,:]
