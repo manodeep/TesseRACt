@@ -776,9 +776,11 @@ def write_bgtreebi(filename,mass,pos,overwrite=False):
         fd.write('  {:11.6E}\n'.format(float(mass[i])))
     # Write positions
     for i in range(N):
-        fd.write('  {:11.6E} {:11.6E} {:11.6E}\n'.format(float(pos[i,0]),
-                                                         float(pos[i,1]),
-                                                         float(pos[i,2])))
+        iline = '  '
+        for j in range(dim):
+            iline+='{:11.6E} '.format(float(pos[i,j]))
+        iline+='\n'
+        fd.write(iline)
     # Close file ane return
     fd.close()
     return
