@@ -110,16 +110,18 @@ class cStructDict(object):
 
         """
         return self.unpack(fd.read(self.size))
-    def write(self,fd,fdict):
+    def write(self,fd,fdict,**kwargs):
         """Writes one instance of data structure to a file.
 
         Args:
             fd (file): File that data structure should be written to.
             fdict (dict): Data structure with fields as key,value pairs 
                 that should be written to file.
+            \*\*kwargs: Additional keyword arguments are passed to 
+            :func:`tesseract.io.cStructDict.pack`.
 
         """
-        fd.write(self.pack(fdict))
+        fd.write(self.pack(fdict,**kwargs))
     def unpack(self,string):
         """Unpacks one instance of data structure from a string.
 
@@ -151,12 +153,15 @@ class cStructDict(object):
                 i+= f_len
         # Return dictionary
         return out
-    def pack(self,fdict):
+    def pack(self,fdict,usedefaults=False):
         """Packs one instance of data structure into a string.
 
         Args:
             fdict (dict): Dictionary with keys corresponding to fields in the 
                 structure.
+            usedefaults (Optional[bool]): If True, default values for fields
+                are used to populate missing fields when they exist. 
+                (default = False)
         
         Returns:
             string: Packed structure.
@@ -166,24 +171,35 @@ class cStructDict(object):
                 length of the entry in the dictionary.
 
         """
+        import struct
         # Create a list of values from the structure
         values = []
         for f in self.fields:
             f_key = f[0]
             f_fmt = f[1]
             f_len = len(f_fmt)
+            if f_key == 'padding': continue # Dont pack padding
+            # Missing value
+            if f_key not in fdict:
+                if usedefaults and len(f)>=3:
+                    iv = f[2]
+                else:
+                    raise Exception('{} field is missing.'.format(f_key))
+            else:
+                iv = fdict[f_key]
             # Single value
             if f_len == 1:
-                values.append(fdict[f_key])
+                values.append(iv)
             # Multiple values
             else:
-                if len(fdict[f_key])!=f_len:
+                if len(iv)!=f_len:
                     raise Exception('There should be {} '.format(f_len)+
                                     'entries for field {}, but '.format(f_key)+
-                                    'there are {}'.format(len(fdict[f_key])))
-                values+=list(fdict[f_key])
+                                    'there are {}'.format(len(iv)))
+                values+=list(iv)
         # Pack it all and return it
-        return struct.pack(self.format,*values)
+        out = struct.pack(self.format,*values)
+        return out
             
 
 # ------------------------------------------------------------------------------
@@ -233,7 +249,7 @@ def read_snapshot(filename,format=0,**kwargs):
         format (Optional[int]): Code for the type of snapshot. See output from
             `display_snapshot_formats` for a description of the available 
             codes. (default = 0)
-        **kwargs: Additional keywords are passed to the appropriate method for 
+        \*\*kwargs: Additional keywords are passed to the appropriate method for 
             reading.
 
     Returns:
@@ -262,7 +278,7 @@ def write_snapshot(filename,mass,pos,format=0,**kwargs):
         format (Optional[int]): Integer specifying the type of snapshot. See 
             output from `display_snapshot_formats` for a description of the 
             available codes. (default = 0)
-        **kwargs: Additional keywords are passed to the appropriate method for 
+        \*\*kwargs: Additional keywords are passed to the appropriate method for 
             writing.
 
     Raises:
@@ -292,7 +308,7 @@ def convert_snapshot(filename1,format1,filename2,format2,
             available codes. 
         overwrite (Optional[bool]): Set to True if existing filename2 should be 
             overwritten. (default = False)
-        **kwargs: Additional keywords are passed to the appropriate method for 
+        \*\*kwargs: Additional keywords are passed to the appropriate method for 
             reading.
 
     Raises:
@@ -473,9 +489,9 @@ class Gadget2(Snapshot):
 
                     * 1: See `io.read_gadget2_binary1` for details.
 
-            *args: Additional arguments are passed to the appropriate method.
-            *kwargs: Additional keyword arguments are passed to the appropriate 
-                method.
+            \*args: Additional arguments are passed to the appropriate method.
+            \*\*kwargs: Additional keyword arguments are passed to the 
+                appropriate method.
 
         Returns:
             np.ndarray,np.ndarray: Particle masses and positions:
@@ -491,6 +507,41 @@ class Gadget2(Snapshot):
         # Simple binary format
         if format == 1:
             return read_gadget2_binary1(*args,**kwargs)
+        # 'Convenient' binary format
+        elif format == 2:
+            raise ValueError('Gadget snapshot format {} '.format(format)+
+                             '(binary2) is not currently supported.')
+        # HDF5 format
+        elif format == 3:
+            raise ValueError('Gadget snapshot format {} '.format(format)+
+                             '(hdf5) is not currently supported.')
+        # Other
+        else:
+            raise ValueError('{} is not a valid Gadget-2 '.format(format)+
+                             'snapshot format.')
+    def write(self,*args,**kwargs):
+        """Writes data to a Gadget snapshot.
+        
+        Args:
+            format (Optional[int]): Format code specifying what format the 
+                Gadget snapshot is in. This code determines what function any 
+                additional keywords are passed to. (default = 1) Currently 
+                supported values include:
+
+                    * 1: See :func:`tesseract.io.write_gadget2_binary1` 
+
+            \*args: Additional arguments are passed to the appropriate method.
+            \*\*kwargs: Additional keyword arguments are passed to the 
+                appropriate method.
+
+        Raises:
+            ValueError: If specified format is not supported.
+
+        """
+        format = kwargs.pop('format',1)
+        # Simple binary format
+        if format == 1:
+            return write_gadget2_binary1(*args,**kwargs)
         # 'Convenient' binary format
         elif format == 2:
             raise ValueError('Gadget snapshot format {} '.format(format)+
@@ -531,24 +582,24 @@ def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
         filename (str): Full path to file that should be written.
         mass (np.ndarray): (N,) Particle masses.
         pos (np.ndarray): (N,3) Particle positions.
-        header (Optional[GadgetHeaderStruct]): Header structure. If not provided 
-            one is created with default values. 
+        header (Optional[dict]): Header structure. If not provided 
+            one is created with default values from GadgetHeaderStruct. 
         vel (Optional[np.ndarray]): (N,3) Particle velocities. If not provided,
             velocities are set to zero in the file.
         ids (Optional[np.ndarray]): (N,) Particle IDs. If not provided, ids are 
             initialized to monotonically increasing particle indices.
         overwrite (Optional[bool]): If True and `filename` already exists, it 
             is overwritten. (default = False)
-        Additional keywords are parsed for header values.
+        \*\*kwargs: Additional keywords are parsed for header values.
 
     Raises:
         Exception: If the sizes of `mass` and `pos` do not agree.
-
-    .. todo:: list default header parameters
-    .. todo:: initialize header
-    .. todo:: allow mass info to be in header, not in an array
+        NotImplementedError: If num_files > 1.
+        Exception: If header option 'npart_total' is not provided when 
+            header option 'num_files' > 1.
 
     """
+    import struct
     header_struct = GadgetHeaderStruct()
     # Prevent overwrite
     if os.path.isfile(filename) and not overwrite:
@@ -559,40 +610,68 @@ def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
     if len(mass)!=pos.shape[0]:
         raise Exception('mass has {} elements, pos has shape {}'.format(len(mass),pos.shape))
     N,dim = pos.shape
-    # Defaults
-    if npart is None: npart = np.array([0,N,0,0,0,0],dtype=long)
+    # Initialize header
     if header is None:
-        pass
+        header = {}
+        for k in header_struct.keys:
+            if k in kwargs: header[k] = kwargs[k]
+    header.setdefault('num_files',1)
+    if header['num_files'] > 1:
+        raise NotImplementedError('Write to multiple files not currently supported.')
+    if 'npart' not in header:
+        header['npart'] = np.array([0,N,0,0,0,0],dtype=int)
+    if 'npart_total' not in header: 
+        if header['num_files']==1:
+            header['npart_total'] = header['npart']
+        else:
+            raise Exception("'npart_total' must be specified if 'num_files'="+
+                            "{}".format(header['num_files']))
+    if 'massarr' not in header:
+        header['massarr'] = np.zeros(6,dtype=np.float64)
+        for t in range(6):
+            curr = header['npart'][t]
+            if curr == 0: continue
+            prev = sum(header['npart'][:t])
+            if np.all(mass[prev:(prev+curr)]==mass[prev]):
+                header['massarr'][t] = mass[prev]
+    # Set defaults for empty fields
     if isinstance(vel,type(None)):
-        vel = np.zeros(N,dim)
+        vel = np.zeros((N,dim),dtype=np.float32)
     if isinstance(ids,type(None)):
-        ids = np.arange(N,dtype=int)
+        ids = np.arange(N,dtype=np.int32)
     # Open file
     fd = open(filename,"wb")
     # Write header
     fd.write(struct.pack('i',header_struct.size))
-    header_struct.write(fd)
+    header_struct.write(fd,header,usedefaults=True)
     fd.write(struct.pack('i',header_struct.size))
     # Positions
     pos_size = 3*N*4 # Array of floats
     fd.write(struct.pack('i',pos_size))
-    (pos.reshape((ntyp,1),order='C').astype(np.float32)).tofile(fd)
+    (pos.reshape((3*N,1),order='C').astype(np.float32)).tofile(fd)
     fd.write(struct.pack('i',pos_size))
     # Velocities
     vel_size = 3*N*4 # Array of floats
     fd.write(struct.pack('i',vel_size))
-    (vel.reshape((ntyp,1),order='C').astype(np.float32)).tofile(fd)
+    (vel.reshape((3*N,1),order='C').astype(np.float32)).tofile(fd)
     fd.write(struct.pack('i',vel_size))
     # IDs
     ids_size = N*4 # Array of ints
     fd.write(struct.pack('i',ids_size))
     (ids.astype(np.int32)).tofile(fd)
     fd.write(struct.pack('i',ids_size))
-    # Masses
-    mass_size = N*4 # Array of floats
-    fd.write(struct.pack('i',mass_size))
-    (mass.astype(np.float32)).tofile(fd)
-    fd.write(struct.pack('i',mass_size))
+    # Masses (only for types not described in header)
+    Nmass = sum(header['npart'][header['massarr']==0])
+    if Nmass > 0:
+        mass_size = Nmass*4 # Array of floats
+        fd.write(struct.pack('i',mass_size))
+        for t in range(6):
+            if header['npart'][t]==0: continue
+            if header['massarr'][t]!=0: continue
+            curr = header['npart'][t]
+            prev = sum(header['npart'][:t])
+            (mass[prev:(prev+curr)].astype(np.float32)).tofile(fd)
+        fd.write(struct.pack('i',mass_size))
     # Close file
     fd.close()
     
@@ -630,6 +709,7 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
         IOError: If file is not read propertly.
 
     """
+    import struct
     # Set list of particle types
     if isinstance(ptype,int):
         if ptype in range(6):
@@ -650,12 +730,14 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
             filebase = filename[:idxext]+'{}'
             filename0 = filebase.format(0)
         except:
+            filebase = filename
             filename0 = filename
     else:
         if os.path.isfile(filename+'.0'):
             filebase = filename+'.{}'
             filename0 = filebase.format(0)
         else:
+            filebase = filename
             filename0 = filename
     # Open first file
     try:
@@ -707,13 +789,13 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
                 raise IOError('Expected block of size {}, '.format(head_size)+
                               'but block footer indicates {}.'.format(fint))
         # Count particles in arrays
-        npos_i = 0 ; nmass_i = 0
-        for t in typelist:
-            npos_i+= header_i['npart'][t]
+        nout_i = 0 ; nmass_i = 0
+        for t in range(len(header_i['npart'])):
+            nout_i+= header_i['npart'][t]
             if header_i['massarr'][t]==0:
                 nmass_i+= header_i['npart'][t]
         # Positions
-        pos_size = npos_i*4 # Array of floats
+        pos_size = nout_i*4*3 # Array of floats
         hint = struct.unpack('i',fd.read(4))[0]
         if hint != pos_size:
             raise IOError('Expected block of size {}, '.format(pos_size)+
@@ -732,30 +814,32 @@ def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
         if fint != pos_size:
             raise IOError('Expected block of size {}, '.format(pos_size)+
                           'but block footer indicates {}.'.format(fint))
+        # Intermediate blocks
+        fd.seek(4 + 3*4*nout_i + 4 +   # velocity block
+                4 +   4*nout_i + 4 ,1) # particle ID block
         # Masses
-        fd.seek(4 + 3*4*npos_i + 4 +   # velocity block
-                4 +   4*npos_i + 4 ,1) # particle ID block
-        mass_size = nmass_i*4 # Array of floats
-        hint = struct.unpack('i',fd.read(4))[0]
-        if hint != mass_size:
-            raise IOError('Expected block of size {}, '.format(mass_size)+
-                          'but block header indicates {}.'.format(hint))
-        for t in range(6):
-            ntyp = header_i['npart'][t]
-            if ntyp == 0: continue
-            if t in typelist:
-                if header_i['massarr'][t]!=0:
-                    mass[mc[t]:(mc[t]+ntyp)] = header_i['massarr'][t]
+        if nmass_i > 0:
+            mass_size = nmass_i*4 # Array of floats
+            hint = struct.unpack('i',fd.read(4))[0]
+            if hint != mass_size:
+                raise IOError('Expected block of size {}, '.format(mass_size)+
+                              'but block header indicates {}.'.format(hint))
+            for t in range(6):
+                ntyp = header_i['npart'][t]
+                if ntyp == 0: continue
+                if t in typelist:
+                    if header_i['massarr'][t]!=0:
+                        mass[mc[t]:(mc[t]+ntyp)] = header_i['massarr'][t]
+                    else:
+                        mass[mc[t]:(mc[t]+ntyp)] = np.fromfile(fd,dtype=np.float32,
+                                                         count=ntyp)
+                    mc[t]+= ntyp
                 else:
-                    mass[mc[t]:(mc[t]+ntyp)] = np.fromfile(fd,dtype=np.float32,
-                                                     count=ntyp)
-                mc[t]+= ntyp
-            else:
-                fd.seek(ntyp*4,1)
-        fint = struct.unpack('i',fd.read(4))[0]
-        if fint != mass_size:
-            raise IOError('Expected block of size {}, '.format(mass_size)+
-                          'but block footer indicates {}.'.format(fint))
+                    fd.seek(ntyp*4,1)
+            fint = struct.unpack('i',fd.read(4))[0]
+            if fint != mass_size:
+                raise IOError('Expected block of size {}, '.format(mass_size)+
+                              'but block footer indicates {}.'.format(fint))
         # Close file
         fd.close()
     # Return
@@ -765,26 +849,26 @@ class GadgetHeaderStruct(cStructDict):
     """Gadget2 header structure."""
     # Sice should be 256
     def __init__(self):
-        fields = [('npart'            ,'IIIIII'),
-                  ('massarr'          ,'dddddd'),
-                  ('time'             ,'d'),
-                  ('redshift'         ,'d'),
-                  ('flag_sfr'         ,'i'),
-                  ('flag_feedback'    ,'i'),
-                  ('npart_total'      ,'IIIIII'),
-                  ('flag_cooling'     ,'i'),
-                  ('num_files'        ,'i'),
-                  ('box_size'         ,'d'),
-                  ('Omega0'           ,'d'),
-                  ('OmegaLambda'      ,'d'),
-                  ('Hubble0'          ,'d'),
-                  ('flag_stellarage'  ,'i'),
-                  ('flag_metals'      ,'i'),
-                  ('NallHW'           ,'IIIIII'),
-                  ('flag_entropy_instead_u','i'),
-                  ('flag_doubleprecision'  ,'i'),
-                  ('flag_ic_info'     ,'i'),
-                  ('lpt_scalingfactor','f'),
+        fields = [('npart'            ,'IIIIII',np.zeros(6,dtype=np.int32)),
+                  ('massarr'          ,'dddddd',np.zeros(6,dtype=np.float64)),
+                  ('time'             ,'d'     ,0.0),
+                  ('redshift'         ,'d'     ,0.0),
+                  ('flag_sfr'         ,'i'     ,0),
+                  ('flag_feedback'    ,'i'     ,0),
+                  ('npart_total'      ,'IIIIII',np.zeros(6,dtype=np.int32)),
+                  ('flag_cooling'     ,'i'     ,0),
+                  ('num_files'        ,'i'     ,1),
+                  ('box_size'         ,'d'     ,0.0),
+                  ('Omega0'           ,'d'     ,0.3),
+                  ('OmegaLambda'      ,'d'     ,0.7),
+                  ('Hubble0'          ,'d'     ,0.7),
+                  ('flag_stellarage'  ,'i'     ,0),
+                  ('flag_metals'      ,'i'     ,0),
+                  ('NallHW'           ,'IIIIII',np.zeros(6,dtype=np.int32)),
+                  ('flag_entropy_instead_u','i',0),
+                  ('flag_doubleprecision'  ,'i',0),
+                  ('flag_ic_info'     ,'i'     ,0),
+                  ('lpt_scalingfactor','f'     ,0.0),
                   ('padding'          ,'x'*(256-((4*28)+(8*12))))]
         super(GadgetHeaderStruct,self).__init__(fields)
 
