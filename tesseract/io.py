@@ -110,6 +110,16 @@ class cStructDict(object):
 
         """
         return self.unpack(fd.read(self.size))
+    def write(self,fd,fdict):
+        """Writes one instance of data structure to a file.
+
+        Args:
+            fd (file): File that data structure should be written to.
+            fdict (dict): Data structure with fields as key,value pairs 
+                that should be written to file.
+
+        """
+        fd.write(self.pack(fdict))
     def unpack(self,string):
         """Unpacks one instance of data structure from a string.
 
@@ -141,6 +151,40 @@ class cStructDict(object):
                 i+= f_len
         # Return dictionary
         return out
+    def pack(self,fdict):
+        """Packs one instance of data structure into a string.
+
+        Args:
+            fdict (dict): Dictionary with keys corresponding to fields in the 
+                structure.
+        
+        Returns:
+            string: Packed structure.
+
+        Raises:
+            Exception: if the length of a field is inconsistent with the 
+                length of the entry in the dictionary.
+
+        """
+        # Create a list of values from the structure
+        values = []
+        for f in self.fields:
+            f_key = f[0]
+            f_fmt = f[1]
+            f_len = len(f_fmt)
+            # Single value
+            if f_len == 1:
+                values.append(fdict[f_key])
+            # Multiple values
+            else:
+                if len(fdict[f_key])!=f_len:
+                    raise Exception('There should be {} '.format(f_len)+
+                                    'entries for field {}, but '.format(f_key)+
+                                    'there are {}'.format(len(fdict[f_key])))
+                values+=list(fdict[f_key])
+        # Pack it all and return it
+        return struct.pack(self.format,*values)
+            
 
 # ------------------------------------------------------------------------------
 # GENERAL SNAPSHOT FILE HANDLING
@@ -478,6 +522,80 @@ class Gadget2(Snapshot):
             kwargs['ptype'] = param['ParticleType']
         return kwargs
 
+def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
+                          vel=None,ids=None,overwrite=False,**kwargs):
+    """Write stripped version Gadget binary files. This version only writes 
+    masses and positions to file. Other fields are not required.
+    
+    Args:
+        filename (str): Full path to file that should be written.
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+        header (Optional[GadgetHeaderStruct]): Header structure. If not provided 
+            one is created with default values. 
+        vel (Optional[np.ndarray]): (N,3) Particle velocities. If not provided,
+            velocities are set to zero in the file.
+        ids (Optional[np.ndarray]): (N,) Particle IDs. If not provided, ids are 
+            initialized to monotonically increasing particle indices.
+        overwrite (Optional[bool]): If True and `filename` already exists, it 
+            is overwritten. (default = False)
+        Additional keywords are parsed for header values.
+
+    Raises:
+        Exception: If the sizes of `mass` and `pos` do not agree.
+
+    .. todo:: list default header parameters
+    .. todo:: initialize header
+    .. todo:: allow mass info to be in header, not in an array
+
+    """
+    header_struct = GadgetHeaderStruct()
+    # Prevent overwrite
+    if os.path.isfile(filename) and not overwrite:
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
+        return
+    # Check sizes
+    if len(mass)!=pos.shape[0]:
+        raise Exception('mass has {} elements, pos has shape {}'.format(len(mass),pos.shape))
+    N,dim = pos.shape
+    # Defaults
+    if npart is None: npart = np.array([0,N,0,0,0,0],dtype=long)
+    if header is None:
+        pass
+    if isinstance(vel,type(None)):
+        vel = np.zeros(N,dim)
+    if isinstance(ids,type(None)):
+        ids = np.arange(N,dtype=int)
+    # Open file
+    fd = open(filename,"wb")
+    # Write header
+    fd.write(struct.pack('i',header_struct.size))
+    header_struct.write(fd)
+    fd.write(struct.pack('i',header_struct.size))
+    # Positions
+    pos_size = 3*N*4 # Array of floats
+    fd.write(struct.pack('i',pos_size))
+    (pos.reshape((ntyp,1),order='C').astype(np.float32)).tofile(fd)
+    fd.write(struct.pack('i',pos_size))
+    # Velocities
+    vel_size = 3*N*4 # Array of floats
+    fd.write(struct.pack('i',vel_size))
+    (vel.reshape((ntyp,1),order='C').astype(np.float32)).tofile(fd)
+    fd.write(struct.pack('i',vel_size))
+    # IDs
+    ids_size = N*4 # Array of ints
+    fd.write(struct.pack('i',ids_size))
+    (ids.astype(np.int32)).tofile(fd)
+    fd.write(struct.pack('i',ids_size))
+    # Masses
+    mass_size = N*4 # Array of floats
+    fd.write(struct.pack('i',mass_size))
+    (mass.astype(np.float32)).tofile(fd)
+    fd.write(struct.pack('i',mass_size))
+    # Close file
+    fd.close()
+    
 def read_gadget2_binary1(filename,ptype=-1,return_npart=False,
                          return_header=False):
     """Read Gadget binary files.
@@ -748,7 +866,7 @@ def write_bgtreebi(filename,mass,pos,overwrite=False):
     Args:
         filename (str): Full path to file that data should be written to.
         mass (np.ndarray): (N,) Particle masses.
-        pos (np.ndarray): (N,3) Particle positions.
+        pos (np.ndarray): (N,ndim) Particle positions.
         overwrite (Optional[bool]): If True and `filename` already exists, it 
             is overwritten. (default = False)
 
