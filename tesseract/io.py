@@ -573,8 +573,8 @@ class Gadget2(Snapshot):
             kwargs['ptype'] = param['ParticleType']
         return kwargs
 
-def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
-                          vel=None,ids=None,overwrite=False,**kwargs):
+def write_gadget2_binary1(filename,mass,pos,header=None,vel=None,ids=None,
+                          overwrite=False,**kwargs):
     """Write stripped version Gadget binary files. This version only writes 
     masses and positions to file. Other fields are not required.
     
@@ -595,6 +595,8 @@ def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
     Raises:
         Exception: If the sizes of `mass` and `pos` do not agree.
         NotImplementedError: If num_files > 1.
+        Exception: If the size of `pos` does not agree with the number 
+            of particles specified by 'npart' in the provided header.
         Exception: If header option 'npart_total' is not provided when 
             header option 'num_files' > 1.
 
@@ -620,12 +622,24 @@ def write_gadget2_binary1(filename,mass,pos,npart=None,header=None,
         raise NotImplementedError('Write to multiple files not currently supported.')
     if 'npart' not in header:
         header['npart'] = np.array([0,N,0,0,0,0],dtype=int)
+    else:
+        if sum(header['npart']) != N:
+            raise Exception("Length of positions ({}) dosn't ".format(N)+
+                            "agree with header "+
+                            "({}).".format(sum(header['npart'])))
     if 'npart_total' not in header: 
         if header['num_files']==1:
             header['npart_total'] = header['npart']
         else:
             raise Exception("'npart_total' must be specified if 'num_files'="+
                             "{}".format(header['num_files']))
+    else:
+        if header['num_files']==1:
+            for t in range(len(header['npart'])):
+                if header['npart'][t]!=header['npart_total'][t]:
+                    raise Exception("Number of particles for type "+
+                                    "{} do not agree between ".format(t)+
+                                    "'npart' and 'npart_total'.")
     if 'massarr' not in header:
         header['massarr'] = np.zeros(6,dtype=np.float64)
         for t in range(6):
@@ -1286,8 +1300,11 @@ class Tipsy(Snapshot):
     """Tipsy Snapshot"""
     _alias = 'tipsy'
     def read(self,*args,**kwargs):
-        """See `io.read_tipsy`."""
+        """See :func:`tesseract.io.read_tipsy`."""
         return read_tipsy(*args,**kwargs)
+    def write(self,*args,**kwargs):
+        """See :func:`tesseract.io.write_tipsy`."""
+        return write_tipsy(*args,**kwargs)
     def parse_voropar(self,param):
         """Maps Vorovol parameters onto input keywords for this class's 
         read/write methods.
@@ -1341,9 +1358,7 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
         IOError: If particle numbers in header do not match.
 
     """
-    pstructs = [TipsyPartStructGas(dtype_pos=dtype_pos,dtype_vel=dtype_vel),
-                TipsyPartStructDM(dtype_pos=dtype_pos,dtype_vel=dtype_vel),
-                TipsyPartStructStar(dtype_pos=dtype_pos,dtype_vel=dtype_vel)]
+    import struct
     # Set list of particle types
     if isinstance(ptype,int):
         if ptype in range(3):
@@ -1372,17 +1387,22 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
     mystery = struct.unpack('i',fd.read(4))
     print('Tipsy Mystery Number = {}'.format(mystery))
     # Count particles & return if specified
-    nout = 0 ; pc = np.zeros(3) ; mc = np.zeros(3)
+    nout = 0 ; pc = np.zeros(3,dtype=int) ; mc = np.zeros(3)
     for t in typelist:
         pc[t] = nout
         nout += header['npart'][t]
     if return_npart:
         return nout
+    # Get structures for each particle type
+    pstrkw = dict(dtype_pos=dtype_pos,dtype_vel=dtype_vel,ndim=header['ndim'])
+    pstructs = [TipsyPartStructGas(**pstrkw),
+                TipsyPartStructDM(**pstrkw),
+                TipsyPartStructStar(**pstrkw)]
     # Preallocate
-    pos = np.zeros((nout,3),dtype=float)
+    pos = np.zeros((nout,header['ndim']),dtype=float)
     mass = np.zeros((nout,),dtype=float)
     # Loop over particle families
-    for t in range(3):
+    for t in range(len(header['npart'])):
         if t in typelist:
             for i in range(header['npart'][t]):
                 ipart = pstructs[t].read(fd)
@@ -1395,45 +1415,164 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
     fd.close()
     return mass,pos
 
+def write_tipsy(filename,mass,pos,header=None,overwrite=False,
+                dtype_pos='f',dtype_vel='f',**kwargs):
+    """Write a Tipsy snapshot using only mass and positions. Other fields 
+    are initialized to zero.
+
+    Args:
+        filename (str): Full path to file that should be written.
+        mass (np.ndarray): (N,) Particle masses.
+        pos (np.ndarray): (N,3) Particle positions.
+        header (Optional[dict]): Header structure. If not provided 
+            one is created with default values from TipsyHeaderStruct. 
+        overwrite (Optional[bool]): If True and `filename` already exists, it 
+            is overwritten. (default = False)
+        dtype_pos (Optional[str]): Format code for particle positions. 
+            (default = 'f')
+        dtype_vel (Optional[str]): Format code for particle velocities.
+            (default = 'f')
+        \*\*kwargs: Additional keywords are parsed for header values.
+
+    Returns:
+        np.ndarray,np.ndarray: Particle masses and positions:
+
+            * mass (np.ndarray): (N,) Particle masses.
+            * pos (np.ndarray): (N,3) Particle positions.
+
+    Raises:
+        Exception: If the sizes of `mass` and `pos` do not agree.
+        Exception: If the dimension of `pos` does not agree with the 
+            number of dimensions specified by 'ndim' in the provided 
+            header.
+        Exception: If the size of `pos` does not agree with the number 
+            of particles specified by 'ntot' in the provided header.
+        Exception: If the total number of particles specified by 'ntot' 
+            in the provided header does not agree with the total across 
+            particle types described in 'npart'.
+
+    """
+    import struct
+    header_struct = GadgetHeaderStruct()
+    # Prevent overwrite
+    if os.path.isfile(filename) and not overwrite:
+        print('Specified file already exists and overwrite not set.')
+        print('    '+filename)
+        return
+    # Check sizes
+    if len(mass)!=pos.shape[0]:
+        raise Exception('mass has {} elements, '.format(len(mass))+
+                        'pos has shape {}'.format(pos.shape))
+    N,ndim = pos.shape
+    # Initialize header
+    if header is None:
+        header = {}
+        for k in header_struct.keys:
+            if k in kwargs: header[k] = kwargs[k]
+    if 'ndim' not in header:
+        header['ndim'] = ndim
+    else:
+        if header['ndim'] != ndim:
+            raise Exception("Dimensions of positions ({}) dosn't ".format(ndim)+
+                            "agree with header ({}).".format(header['ndim']))
+    if 'ntot' not in header:
+        if 'npart' in header: 
+            header['ntot'] = sum(header['npart'])
+        else:
+            header['ntot'] = N
+    else:
+        if header['ntot'] != N:
+            raise Exception("Length of positions ({}) dosn't ".format(N)+
+                            "agree with header ({}).".format(header['ntot']))
+    if 'npart' not in header:
+        header['npart'] = np.array([0,header['ntot'],0],dtype=np.int32)
+    else:
+        if header['ntot']!=sum(header['npart']):
+            raise Exception("Total number of particles "+
+                            "({}) dosn't ".format(header['ntot'])+
+                            "agree with break down by type "+
+                            "({}).".format(sum(header['npart'])))
+    # Open file
+    fd = open(filename,'wb')
+    # Write header
+    header_struct = TipsyHeaderStruct()
+    header_struct.write(fd,header,usedefaults=True)
+    # Random 4 bytes
+    fd.write(struct.pack('i',125))
+    # Write particles for each type
+    pstrkw = dict(dtype_pos=dtype_pos,dtype_vel=dtype_vel,ndim=ndim)
+    pstructs = [TipsyPartStructGas(**pstrkw),
+                TipsyPartStructDM(**pstrkw),
+                TipsyPartStructStar(**pstrkw)]
+    if   dtype_pos == 'f': dtype_pos_np = np.float32
+    elif dtype_pos == 'd': dtype_pos_np = np.float64
+    else:
+        raise Exception("Unregonized string '{}'".format(dtype_pos)+
+                        "specifying data type for positions.")
+    pc = 0
+    for t in range(len(header['npart'])):
+        for i in range(header['npart'][t]):
+            pstructs[t].write(fd,{'mass':mass[pc],
+                                  'pos':pos[pc,:].astype(dtype_pos_np)},
+                              usedefaults=True)
+            pc+=1
+    # Close file
+    fd.close()
+
 class TipsyHeaderStruct(cStructDict):
     """Tipsy header structure"""
     # Size should be 28
     def __init__(self):
-        fields = [('time'            ,'d'), 
+        fields = [('time'            ,'d',0.0), 
                   ('ntot'            ,'i'),
                   ('ndim'            ,'i'),
                   ('npart'           ,'iii')]
         super(TipsyHeaderStruct,self).__init__(fields)
 class TipsyPartStructGas(cStructDict):
     """Tipsy gas particle structure"""
-    def __init__(self,dtype_pos='f',dtype_vel='f'):
+    def __init__(self,dtype_pos='f',dtype_vel='f',ndim=3):
+        if   dtype_vel == 'f': dtype_vel_np = np.float32
+        elif dtype_vel == 'd': dtype_vel_np = np.float64
+        else:
+            raise ValueError("Unknown string '{}'".format(dtype_vel)+
+                             " sepcifying velocity data type.")
         fields = [('mass'  ,'f'        ),
-                  ('pos'   ,3*dtype_pos),
-                  ('vel'   ,3*dtype_vel),
-                  ('rho'   ,'f'        ),
-                  ('eps'   ,'f'        ),
-                  ('metals','f'        ),
-                  ('phi'   ,'f'        )]
+                  ('pos'   ,ndim*dtype_pos),
+                  ('vel'   ,ndim*dtype_vel,np.zeros(ndim,dtype=dtype_vel_np)),
+                  ('rho'   ,'f'        ,0.0),
+                  ('eps'   ,'f'        ,0.0),
+                  ('metals','f'        ,0.0),
+                  ('phi'   ,'f'        ,0.0)]
         super(TipsyPartStructGas,self).__init__(fields)
 class TipsyPartStructDM(cStructDict):
     """Tipsy dark matter particle structure"""
-    def __init__(self,dtype_pos='f',dtype_vel='f'):
+    def __init__(self,dtype_pos='f',dtype_vel='f',ndim=3):
+        if   dtype_vel == 'f': dtype_vel_np = np.float32
+        elif dtype_vel == 'd': dtype_vel_np = np.float64
+        else:
+            raise ValueError("Unknown string '{}'".format(dtype_vel)+
+                             " sepcifying velocity data type.")
         fields = [('mass'  ,'f'        ),
-                  ('pos'   ,3*dtype_pos),
-                  ('vel'   ,3*dtype_vel),
-                  ('eps'   ,'f'        ),
-                  ('phi'   ,'f'        )]
+                  ('pos'   ,ndim*dtype_pos),
+                  ('vel'   ,ndim*dtype_vel,np.zeros(ndim,dtype=dtype_vel_np)),
+                  ('eps'   ,'f'        ,0.0),
+                  ('phi'   ,'f'        ,0.0)]
         super(TipsyPartStructDM,self).__init__(fields)
 class TipsyPartStructStar(cStructDict):
     """Tipsy star particle structure"""
-    def __init__(self,dtype_pos='f',dtype_vel='f'):
+    def __init__(self,dtype_pos='f',dtype_vel='f',ndim=3):
+        if   dtype_vel == 'f': dtype_vel_np = np.float32
+        elif dtype_vel == 'd': dtype_vel_np = np.float64
+        else:
+            raise ValueError("Unknown string '{}'".format(dtype_vel)+
+                             " sepcifying velocity data type.")
         fields = [('mass'  ,'f'        ),
-                  ('pos'   ,3*dtype_pos),
-                  ('vel'   ,3*dtype_vel),
-                  ('metals','f'        ),
-                  ('tform' ,'f'        ),
-                  ('eps'   ,'f'        ),
-                  ('phi'   ,'f'        )]
+                  ('pos'   ,ndim*dtype_pos),
+                  ('vel'   ,ndim*dtype_vel,np.zeros(ndim,dtype=dtype_vel_np)),
+                  ('metals','f'        ,0.0),
+                  ('tform' ,'f'        ,0.0),
+                  ('eps'   ,'f'        ,0.0),
+                  ('phi'   ,'f'        ,0.0)]
         super(TipsyPartStructStar,self).__init__(fields)
 
 # ------------------------------------------------------------------------------
