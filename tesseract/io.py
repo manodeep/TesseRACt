@@ -1434,12 +1434,6 @@ def write_tipsy(filename,mass,pos,header=None,overwrite=False,
             (default = 'f')
         \*\*kwargs: Additional keywords are parsed for header values.
 
-    Returns:
-        np.ndarray,np.ndarray: Particle masses and positions:
-
-            * mass (np.ndarray): (N,) Particle masses.
-            * pos (np.ndarray): (N,3) Particle positions.
-
     Raises:
         Exception: If the sizes of `mass` and `pos` do not agree.
         Exception: If the dimension of `pos` does not agree with the 
