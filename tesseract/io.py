@@ -1383,9 +1383,6 @@ def read_tipsy(filename,ptype=-1,return_npart=False,return_header=False,
     if return_header:
         fd.close()
         return header
-    # Random 4 bytes
-    mystery = struct.unpack('i',fd.read(4))
-    print('Tipsy Mystery Number = {}'.format(mystery))
     # Count particles & return if specified
     nout = 0 ; pc = np.zeros(3,dtype=int) ; mc = np.zeros(3)
     for t in typelist:
@@ -1491,8 +1488,6 @@ def write_tipsy(filename,mass,pos,header=None,overwrite=False,
     # Write header
     header_struct = TipsyHeaderStruct()
     header_struct.write(fd,header,usedefaults=True)
-    # Random 4 bytes
-    fd.write(struct.pack('i',125))
     # Write particles for each type
     pstrkw = dict(dtype_pos=dtype_pos,dtype_vel=dtype_vel,ndim=ndim)
     pstructs = [TipsyPartStructGas(**pstrkw),
@@ -1520,7 +1515,8 @@ class TipsyHeaderStruct(cStructDict):
         fields = [('time'            ,'d',0.0), 
                   ('ntot'            ,'i'),
                   ('ndim'            ,'i'),
-                  ('npart'           ,'iii')]
+                  ('npart'           ,'iii'),
+                  ('padding'         ,4*'x')]
         super(TipsyHeaderStruct,self).__init__(fields)
 class TipsyPartStructGas(cStructDict):
     """Tipsy gas particle structure"""
