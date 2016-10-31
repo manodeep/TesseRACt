@@ -60,8 +60,9 @@ import util
 import tests
 
 # Base access to key functionality
-from voro import tessellate
+from voro import tessellate, calc_nfw, concentration
 
-__all__ = ['voro','nfw','io','util','tests','tessellate']
+__all__ = ['voro','nfw','io','util','tests',
+           'tessellate','calc_nfw','concentration']
 
 

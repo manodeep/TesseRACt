@@ -885,8 +885,124 @@ def read_param(filename):
 
 # ------------------------------------------------------------------------------
 # METHODS TO COMPUTE NFW
-def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
-            ownfw=False,plotflag=False,plotfile=None,residuals=True,delta=None,
+def calc_nfw(pos, mass, method='voronoi', vol=None, tess_kw={}, vorometh='rhalf', 
+             dont_scale_voronoi=False, rad=None, radsort=None, **kwargs):
+    """Returns NFW parameters found using the specified method(s). 
+
+    Args:
+        pos (np.ndarray of float): Coordinates of points in the distribution.
+        mass (np.ndarray of float): Mass of points in the distribution.
+        method (Optional[str,list]): Method or list of methods that should be 
+            used to calculate NFW parameters. See :func:`tesseract.nfw.calc_nfw` 
+            for more detailed info on the techniques (default = 'voronoi'). 
+            Any valid input values for :func:`tesseract.nfw.calc_nfw` are 
+            valid here. Additional options include...
+
+                * 'voronoi': use unweighted voronoi volumes to compute radii 
+                    (See :func:`tesseract.util.vol2rad`) and then use 
+                    technique specified by vorometh.
+                * 'voronoi_wX': same as 'voronoi', but weight voronoi volumes by
+                    the geometric volumes computed from the actual radii.
+                    The weight X specifies how much the geometric volumes
+                    should be weighted.  
+                * 'fit': leastsq fit to NFW enclosed mass profile.
+                * 'rhalf': non-parametric half-mass.
+                * 'vpeak': non-parametric peak velocity.
+
+       vol (Optional[np.ndarray of float): Volumes of voronoi cells associated 
+           with points. Defaults to None. If not provided, volumes are 
+           calculated using :func:`tesseract.voro.tessellate` with keywords from 
+           `tess_kw`.
+       tess_kw (Optional[dict]): Additional keywords that should be passed to 
+           :func:`tesseract.voro.tessellate` in the event `vol` is required, but 
+           not provided. Defaults to empty dict.
+       vorometh (Optional[str]): Method that should be used to compute 
+           concentration using voronoi based radii. This is only used for the 
+           'voronoi' and 'voronoi_wX' methods. Valid values include 'fit', 
+           'rhalf', and 'vpeak' (See above).
+       dont_scale_voronoi (Optional[bool]): Set to True if concentrations 
+           computed using Voronoi tessellation volumes should not be scaled 
+           using the function :attr:`tesseract.voro._vor2rad_func`
+           and parameters :attr:`tesseract.voro._vor2rad_param`.
+       rad (Optional[np.ndarray of float]): Radii for each point. Is calculated 
+           from `pos` if not provided. Defaults to None. This allows radii to be 
+           calculated once and then reused in the case of multiple runs.
+       radsort (Optional[np.ndarray of int]): Indices required to sort points in 
+           the order of increasing radii. Is calculated from `rad` if not 
+           provided. Defaults to None. This allows sorting indices to be 
+           calculated once and then reused in the case of multiple runs.
+       \*\*kwargs: Additional keywords are passed to each method 
+           :func:`tesseract.nfw.calc_nfw` is called with.
+
+    Returns:
+        dict: Dictionary of NFW parameters returned by 
+        :func:`tesseract.nfw.calc_nfw` with the addition of N, the number of 
+        particles used. 
+
+    """
+    from . import nfw
+    # Compute radii
+    if rad is None:
+        rad = np.sqrt(np.sum(pos*pos,axis=1))
+    if radsort is None:
+        radsort = np.argsort(rad)
+    # Voronoi based method
+    if method.startswith('voronoi'):
+        # Read volumes and remove infinite values (negatives)
+        if vol is None:
+            vol = tessellate(pos, **tess_kw)
+        idxfin = (vol>=0)
+        # Get weights
+        if method.startswith('voronoi_w'):
+            weight = float(method.split('voronoi_w')[-1])
+            weightby = rad[idxfin]
+        else:
+            weight = False
+            weightby = False
+        # Compute radii and sorting
+        volrad, idxsort = util.vol2rad(vol[idxfin], outsort=True,
+                                       weightby=weightby, weight=weight)
+        # Virial things
+        # rho = mass[idxfin][idxsort]/vol[idxfin][idxsort]
+        # rvir,mvir = nfw.calc_virial(volrad,rho=rho,
+        #                             delta=kwargs.get('delta',200.),
+        #                             rhoc=kwargs.get('rhoc',None))
+        # print('voro.py @ 424: rvir,mvir = ',rvir,mvir)
+        # Get nfw params
+        out = nfw.calc_nfw(volrad,m=mass[idxfin][idxsort],
+                           method=vorometh,issorted=True,
+                           label=method.title(),**kwargs)
+        # Scale based on voronoi radii calibration
+        if not dont_scale_voronoi:
+            #fit_vor2rad = [1.20765393, 0.96956452]
+            #fit_vor2rad = [ 1./1.24032053,  1./0.95997943]
+            #fit_vor2rad = [ 0.84497027,  1.02418653] # << use this one!
+            c = out['c']
+            out['c'] = _vor2rad_func(c,*_vor2rad_param)
+            #out['c'] = fit_vor2rad[0]*(c**fit_vor2rad[1])
+    # Radial based methods
+    else:
+        out = nfw.calc_nfw(rad[radsort],m=mass[radsort],
+                           method=method,issorted=True,
+                           label=method.title(), **kwargs)
+    out['N'] = len(mass)
+    return out
+
+def concentration(*args, **kwargs):
+    r"""Get the concentration of a distribution of points.
+
+    Args:
+        All arguments and keyword arguments are passed to 
+        :func:`tesseract.voro.calc_nfw`.
+        
+    Returns:
+        float: Concentration of the distribution of points.
+
+    """
+    return calc_nfw(*args, **kwargs)['c']
+
+def get_nfw(param,method='voronoi',vorometh='rhalf',tess_kw={},nfwfile=None,
+            ownfw=False,plotflag=False,plotfile=None,residuals=True,
             center=False,dont_scale_voronoi=False,Mscl=1.,Rscl=1.,**kwargs):
     """Returns NFW parameters found using the specified method(s). 
 
@@ -913,6 +1029,9 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
            concentration using voronoi based radii. This is only used for the 
            'voronoi' and 'voronoi_wX' methods. Valid values include 'fit', 
            'rhalf', and 'vpeak' (See above).
+       tess_kw (Optional[dict]): Additional keywords that should be passed to 
+           :func:`tesseract.voro.tessellate` in the event `vol` is required, but 
+           not provided. Defaults to empty dict.
        nfwfile (Optional[str]): Path to file where NFW data should be saved. If 
            None, the data is just returned.
        ownfw (Optional[bool]): If True, existing nfwfile is overwritten. 
@@ -923,8 +1042,6 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
            None, the plot is displayed instead. (default = None)
        residuals (Optional[bool]): If True, residuals are also plotted on an
            axes of their own. (default = True)
-       delta (Optional[float]): Virial overdensity factor (default = 200 for 
-           spherical techniques, 243 for voronoi).
        center (Optional[np.ndarray,list,tuple,str]): x,y,z location of center 
            of halo or string specifying how the center should be calculated. If 
            not provided, the halo is not recentered before the profile is 
@@ -960,7 +1077,6 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
         Exception: If there are not enough colors for all of the methods.
 
     """
-    from . import nfw
     colors = ['b','r','g','m','c']
     limdef = (-0.01,0.01)
     # Create list of methods
@@ -997,27 +1113,6 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
     mass,pos = read_snapshot(param)
     mass*=Mscl
     pos*=Rscl
-    # Center
-    if center:
-        if isinstance(center,(list,tuple,np.ndarray)) and len(center)==3:
-            com = center
-        elif isinstance(center,str) and center in ['com','mass']:
-            com = np.dot(pos.T,mass)/mass.sum()
-        elif isinstance(center,str) and center in ['vol','rho']:
-            vol = read_volume(namefile('vols',param))
-            vol*=(Rscl**3.)
-            idxfin = np.where(vol>=0)[0]
-            idxcom = np.argmin(vol[idxfin])
-            com = pos[idxfin[idxcom],:]
-        elif isinstance(center,str) and center in ['mid']:
-            com = np.array([(pos[:,i].min()+pos[:,i].max())/2. for i in range(3)])
-        else:
-            raise TypeError('Unknown center: {}'.format(center))
-        for i in range(3):
-            pos[:,i]-= com[i]
-    # Compute radii
-    rad = np.sqrt(pos[:,0]**2. + pos[:,1]**2. + pos[:,2]**2.)
-    radsort = np.argsort(rad)
     # Setup plot
     if plotflag:
         if len(colors)<len(methlist):
@@ -1039,61 +1134,43 @@ def get_nfw(param,method='voronoi',vorometh='rhalf',nfwfile=None,
     else:
         axs = None
         axs_res = None
+    # Center
+    if center:
+        if isinstance(center,(list,tuple,np.ndarray)) and len(center)==3:
+            com = center
+        elif isinstance(center,str) and center in ['com','mass']:
+            com = np.dot(pos.T,mass)/mass.sum()
+        elif isinstance(center,str) and center in ['vol','rho']:
+            vol = read_volume(namefile('vols',param))
+            vol*=(Rscl**3.)
+            idxfin = np.where(vol>=0)[0]
+            idxcom = np.argmin(vol[idxfin])
+            com = pos[idxfin[idxcom],:]
+        elif isinstance(center,str) and center in ['mid']:
+            com = np.array([(pos[:,i].min()+pos[:,i].max())/2. for i in range(3)])
+        else:
+            raise TypeError('Unknown center: {}'.format(center))
+        for i in range(3):
+            pos[:,i]-= com[i]
+    # Compute radii
+    rad = np.sqrt(pos[:,0]**2. + pos[:,1]**2. + pos[:,2]**2.)
+    radsort = np.argsort(rad)
+    # Check if vol needs to be loaded
+    if vol is None:
+        for m in methlist:
+            if (m not in out) and m.startswith('voronoi'):
+                vol = read_volume(namefile('vols',param))
+                vol*=(Rscl**3.)
+                break
     # Loop over method
     for i,m in enumerate(methlist):
         if m in out:
             continue
-        # Voronoi based method
-        if m.startswith('voronoi'):
-            if delta is None:
-                idelta = 200.#243.
-            else:
-                idelta = delta
-            # Read volumes and remove infinite values (negatives)
-            if vol is None:
-                vol = read_volume(namefile('vols',param))
-                vol*=(Rscl**3.)
-                idxfin = (vol>=0)
-            # Get weights
-            if m.startswith('voronoi_w'):
-                weight = float(m.split('voronoi_w')[-1])
-                weightby = rad[idxfin]
-            else:
-                weight = False
-                weightby = False
-            # Compute radii and sorting
-            volrad,idxsort = util.vol2rad(vol[idxfin],outsort=True,
-                                          weightby=weightby,weight=weight)
-            # Virial things
-            #rho = mass[idxfin][idxsort]/vol[idxfin][idxsort]
-            # rvir,mvir = nfw.calc_virial(volrad,rho=rho,delta=idelta,
-            #                             rhoc=kwargs.get('rhoc',None))
-            #print('voro.py @ 424: rvir,mvir = ',rvir,mvir)
-            # Get nfw params
-            out[m] = nfw.calc_nfw(volrad,m=mass[idxfin][idxsort],
-                                  method=vorometh,issorted=True,
-                                  plotflag=plotflag,residuals=residuals,
-                                  axs=axs,axs_res=axs_res,label=m.title(),
-                                  color=colors[i],delta=idelta,**kwargs)
-            # Scale based on voronoi radii calibration
-            if not dont_scale_voronoi:
-                #fit_vor2rad = [1.20765393, 0.96956452]
-                #fit_vor2rad = [ 1./1.24032053,  1./0.95997943]
-                #fit_vor2rad = [ 0.84497027,  1.02418653] # << use this one!
-                c = out[m]['c']
-                out[m]['c'] = _vor2rad_func(c,**_vor2rad_param)
-                #out[m]['c'] = fit_vor2rad[0]*(c**fit_vor2rad[1])
-        # Radial based methods
-        else:
-            if delta is None:
-                idelta = 200.
-            else:
-                idelta = delta
-            out[m] = nfw.calc_nfw(rad[radsort],m=mass[radsort],method=m,
-                                  issorted=True,plotflag=plotflag,residuals=residuals,
-                                  axs=axs,axs_res=axs_res,label=m.title(),
-                                  color=colors[i],delta=idelta,**kwargs)
-        out[m]['N'] = len(mass)
+        out[m] = calc_nfw(pos, mass, method=m, vol=vol, tess_kw=tess_kw,
+                          vorometh=vorometh, dont_scale_voronoi=dont_scale_voronoi,
+                          rad=rad, radsort=radsort, plotflag=plotflag,
+                          residuals=residuals, axs=axs, axs_res=axs_res,
+                          color=colors[i], **kwargs)
     # Save data
     if isinstance(nfwfile,str):
         fd = open(nfwfile,'w')
