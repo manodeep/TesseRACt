@@ -56,6 +56,12 @@ _installdir = os.path.dirname(os.path.realpath(__file__))
 # cgal4py
 if _tesspkg == 'cgal4py':
     import cgal4py
+    _installdir_vorvol = None
+    _example_parfile = os.path.join(_installdir,'example.param')
+    _makefile_vorovol = None
+    _execfile_vorovol = None
+    _sharedlib_vozutil = None
+    _makefile_qhull = None
 # Phull files
 elif _tesspkg == 'phull':
     if config_parser.has_option('phull','install-dir'):
