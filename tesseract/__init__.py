@@ -59,7 +59,9 @@ import io
 import util
 import tests
 
+# Base access to key functionality
+from voro import tessellate
 
-__all__ = ['voro','nfw','io','util','tests']
+__all__ = ['voro','nfw','io','util','tests','tessellate']
 
 

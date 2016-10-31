@@ -148,6 +148,41 @@ else:
                  'DecimateInputBy','SquishY','SquishZ',
                  'ParticleType','BgTreebiNskip','Bgc2HaloId']
 
+# ------------------------------------------------------------------------------
+# METHOD FOR KEY FUNCTIONALITY
+def tessellate(pos, left_edge=None, right_edge=None, periodic=False, nproc=1,
+               **kwargs):
+    """Get the volumes of associated voronoi cells for a set of particle 
+    positions. The tessellation will be preformed differently depending on 
+    the tessellation package.
+
+    Args:
+        pos (np.ndarray): (N,m) array of particle positions.
+        left_edge (np.ndarray of float64, optional): (m,) lower limits on 
+            the domain. If None, this is set to np.min(pts, axis=0). 
+            Defaults to None. 
+        right_edge (np.ndarray of float64, optional): (m,) upper limits on 
+            the domain. If None, this is set to np.max(pts, axis=0). 
+            Defaults to None. 
+        periodic (bool, optional): If True, the domain is assumed to be 
+            periodic at its left and right edges. Defaults to False.
+        nproc (int, optional): The number of processes that should be used to 
+            compute the tessellation vollumes. Defaults to 1.
+        \*\*kwargs: Additional keywords are passed to either 
+            :func:`tesseract.voro._tessellate` if cgal4py is being used or 
+            :func:`tesseract.voro._dirty_tessellate` for other packages.
+
+    Returns:
+        np.ndarray: (N,) array of particle volumes.
+
+    """
+    if _tesspkg == 'cgal4py':
+        return _tessellate(pos, left_edge=left_edge, right_edge=right_edge,
+                           periodic=periodic, nproc=nproc, **kwargs)
+    else:
+        return _dirty_tessellate(pos, left_edge=left_edge, right_edge=right_edge,
+                                 periodic=periodic, nproc=nproc, **kwargs)
+
 def _dirty_tessellate(pos, mass=None, runtag='test', parfile=None,
                       left_edge=None, right_edge=None, periodic=False, 
                       **kwargs):
