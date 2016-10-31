@@ -1030,7 +1030,8 @@ class Bgc2HaloCatalogue(Snapshot):
         return kwargs
 
 
-def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
+def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False,
+                  return_ids=False):
     """Read BGC2 halo catalogue.
 
     Args:
@@ -1041,6 +1042,8 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
             is read from the file (default = False).
         return_header (Optional[bool]): If True, only the file header is read
             from the file (default = False).
+        return_ids (Optional[bool]): If True, the particle IDs for particles in 
+            halos matching the suppplied haloid are returned (default = False).
 
     Returns:
         mass (np.ndarray): (N,) Particle masses.
@@ -1134,7 +1137,9 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
         return nout
     # Allocate
     mass = np.ones(nout,dtype=np.float32)*header['part_mass']
-    pos = np.zeros((nout,3),dtype=np.float32)
+    pos = np.empty((nout,3),dtype=np.float32)
+    if return_ids:
+        ids = np.empty(nout,dtype=np.int64)
     # Loop over files, collecting particle info
     gtot = 0 ; ntot = 0
     for i in range(nfiles):
@@ -1171,6 +1176,8 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
                 for n in range(groups[gtot]['npart']):
                     ipart = part_struct.read(fd)
                     pos[ntot,:] = ipart['pos']
+                    if return_ids:
+                        ids[ntot] = ipart['part_id']
                     ntot+=1
             else:
                 fd.seek(groups[gtot]['npart']*part_struct.size,1)
@@ -1184,7 +1191,10 @@ def read_bgc2halo(filename0,haloid=-1,return_npart=False,return_header=False):
             gtot+=1
         # Close this file
         fd.close()
-    return mass,pos
+    if return_ids:
+        return mass,pos,ids
+    else:
+        return mass,pos
 
 class Bgc2HeaderStruct(cStructDict):
     """BGC2 header structure"""
