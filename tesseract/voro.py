@@ -53,8 +53,11 @@ _tesspkg = config_parser.get('general','tess-package').strip()
 # Package info
 _installdir = os.path.dirname(os.path.realpath(__file__))
 
+# cgal4py
+if _tesspkg == 'cgal4py':
+    import cgal4py
 # Phull files
-if _tesspkg == 'phull':
+elif _tesspkg == 'phull':
     if config_parser.has_option('phull','install-dir'):
         _installdir_vorvol = config_parser.get('phull','install-dir').strip()
     else:
@@ -139,7 +142,9 @@ else:
                  'DecimateInputBy','SquishY','SquishZ',
                  'ParticleType','BgTreebiNskip','Bgc2HaloId']
 
-def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
+def _dirty_tessellate(pos, mass=None, runtag='test', parfile=None,
+                      left_edge=None, right_edge=None, periodic=False, 
+                      **kwargs):
     """Returns the tesselation volumes for a set of particle masses and 
     positions by creating the necessary files in the current working directory.
     This function only serves as a shortcut for actually importing the c 
@@ -153,6 +158,14 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
             to create the necessary file names. (default = 'test')
         parfile (Optional[str]): Name of parameter file that should be read or
             created.
+        left_edge (np.ndarray of float64, optional): (m,) lower limits on 
+            the domain. If None, this is set to np.min(pts, axis=0). 
+            Defaults to None. 
+        right_edge (np.ndarray of float64, optional): (m,) upper limits on 
+            the domain. If None, this is set to np.max(pts, axis=0). 
+            Defaults to None. 
+        periodic (bool, optional): If True, the domain is assumed to be 
+            periodic at its left and right edges. Defaults to False.
         \*\*kwargs: Additional keywords are passed to :func:`tesseract.voro.run`.
 
     Returns:
@@ -165,12 +178,31 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
     rundir = os.path.join(os.getcwd(),runtag)
     if not os.path.isdir(rundir):
         os.mkdir(rundir)
+    # Convert left/right edges to other format
+    if periodic:
+        PeriodicBoundariesOn = 1
+        if right_edge is None:
+            right_edge = np.max(pts, axis=0)
+            if left_edge is None:
+                left_edge = np.min(pts, axis=0)
+        else:
+            if left_edge is None:
+                left_edge = np.zeros(pos.shape[1],pos.dtype)
+        BoxSize = right_edge[0] - left_edge[0]
+        for i in range(pos.shape[1]):
+            assert(BoxSize == (right_edge[i] - left_edge[i]))
+        pos -= left_edge
+    else:
+        PeriodicBoundariesOn = 0
+        BoxSize = 0.0
     # Create parameter file
     if parfile is None:
         parfile = os.path.join(rundir,runtag+'.param')
     param = dict(FilePrefix=runtag,
                  PositionFile=os.path.join(rundir,runtag+'.snap'),
-                 PositionFileFormat=0)
+                 PositionFileFormat=0,
+                 PeriodicBoundariesOn=PeriodicBoundariesOn,
+                 BoxSize=BoxSize)
     param.update(**kwargs)
     param = make_param(parfile,basefile=_example_parfile,**param)
     # Create snapshot
@@ -193,32 +225,70 @@ def _dirty_tessellate(pos,mass=None,runtag='test',parfile=None,**kwargs):
 
 # ------------------------------------------------------------------------------
 # PYTHON WRAPPERS FOR C FUNCTIONS
-def _tessellate(pos):
+def _tessellate(pos, left_edge=None, right_edge=None, periodic=False, nproc=1):
     """Run tessellation directly using c library. 
     
     Args:
         pos (np.ndarray): (N,3) array of particle positions.
+        left_edge (np.ndarray of float64, optional): (m,) lower limits on 
+            the domain. If None, this is set to np.min(pts, axis=0). 
+            Defaults to None. 
+        right_edge (np.ndarray of float64, optional): (m,) upper limits on 
+            the domain. If None, this is set to np.max(pts, axis=0). 
+            Defaults to None. 
+        periodic (bool, optional): If True, the domain is assumed to be 
+            periodic at its left and right edges. Defaults to False.
+        nproc (int, optional): The number of processes that should be used to 
+            compute the tessellation vollumes. Defaults to 1.
 
     Returns:
         np.ndarray: (N,) array of particle volumes.
 
+    .. todo:: Direct use of library or removal of this feature.
+
     """
-    import ctypes
-    from ctypes.util import find_library
-    if not os.path.isfile(_sharedlib_vozutil):
-        print(_sharedlib_vozutil)
-        make_library('libvozutil.so')
-    os.environ['LD_LIBRARY_PATH'] = os.path.dirname(_sharedlib_vozutil)+':'+\
-        os.environ['LD_LIBRARY_PATH']
-    libvozutil = ctypes.CDLL(_sharedlib_vozutil,mode=ctypes.RTLD_GLOBAL)
-#    libvozutil = ctypes.cdll.LoadLibrary(_sharedlib_vozutil)
-    print(dir(libvozutil))
-    raise Exception('This funciton is a work in progress. Do not use it.')
+    if _tesspkg == 'cgal4py':
+        return cgal4py.voronoi_volumes(pos, left_edge=left_edge, 
+                                       right_edge=right_edge, periodic=periodic,
+                                       nproc=nproc)
+    else:
+        if (nproc > 1):
+            warnings.warn("Multiprocessing not currently allowed for "+
+                          "tessellation package {}.".format(_tesspkg))
+        # Convert left/right edges to other format
+        if periodic:
+            PeriodicBoundariesOn = 1
+            if right_edge is None:
+                right_edge = np.max(pts, axis=0)
+                if left_edge is None:
+                    left_edge = np.min(pts, axis=0)
+            else:
+                if left_edge is None:
+                    left_edge = np.zeros(pos.shape[1],pos.dtype)
+            BoxSize = right_edge[0] - left_edge[0]
+            for i in range(pos.shape[1]):
+                assert(BoxSize == (right_edge[i] - left_edge[i]))
+            pos -= left_edge
+        else:
+            PeriodicBoundariesOn = 0
+            BoxSize = 0.0
+        # Direct library access
+        import ctypes
+        from ctypes.util import find_library
+        if not os.path.isfile(_sharedlib_vozutil):
+            print(_sharedlib_vozutil)
+            make_library('libvozutil.so')
+        os.environ['LD_LIBRARY_PATH'] = os.path.dirname(_sharedlib_vozutil)+':'+\
+            os.environ['LD_LIBRARY_PATH']
+        libvozutil = ctypes.CDLL(_sharedlib_vozutil,mode=ctypes.RTLD_GLOBAL)
+        # libvozutil = ctypes.cdll.LoadLibrary(_sharedlib_vozutil)
+        print(dir(libvozutil))
+        raise Exception('This funciton is a work in progress. Do not use it.')
 
 # ------------------------------------------------------------------------------
 # METHODS FOR INTERFACING WITH THE VOROVOL ROUTINE
 def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
-        recompile=False):
+        recompile=False,nproc=1):
     """Runs vorovol on the designated parameter file. If necessary, vorovol will
     be compiled first.
     
@@ -237,6 +307,8 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
             (default = True)
         recompile (Optional[bool]): If true, the executable is compiled even if 
             it exists. (default = True)
+        nproc (int, optional): The number of processes that should be used to 
+            compute the tessellation vollumes. Defaults to 1.
 
     Returns:
         code (int): Non-zero codes refer to an error generated while running
@@ -268,27 +340,41 @@ def run(parfile0,exefile=None,outfile=None,overwrite=False,verbose=True,
             print('voro.py @ 63: Voronoi output already exists and overwrite not set.')
             print('    '+volfile)
         return 0
-    # Compile executable if it does not exists
-    if not os.path.isfile(exefile) or recompile:
-        make_vorovol(os.path.join(os.path.dirname(exefile),'Makefile'))
-    # Create output directories
-    outputdir = param['OutputDir']
-    if not os.path.isdir(outputdir):
-        os.mkdir(outputdir)
-    for d in ['vols','adjs','part']:
-        if not os.path.isdir(os.path.join(outputdir,d)):
-            os.mkdir(os.path.join(outputdir,d))
-    # Create command
-    cmd = './{} {}'.format(os.path.basename(exefile),parfile)
-    if outfile is not None:
-        cmd+=' > {}'.format(outfile)
-    # Run
-    curdir = os.getcwd()
-    os.chdir(os.path.dirname(exefile))
-    if verbose:
-        print(cmd)
-    code = os.system(cmd)
-    os.chdir(curdir)
+    # cgal4py version dosn't require compilation
+    if _tesspkg == 'cgal4py':
+        pos = read_snapshot(param)
+        vols = cgal4py.voronoi_volumes(
+            pos, periodic=(param['PeriodicBoundariesOn']==1),
+            left_edge = np.zeros(pos.shape[1],pos.dtype),
+            right_edge = param['BoxSize']*np.ones(pos.shape[1],pos.dtype),
+            nproc=nproc)
+        write_volume(volfile, vols, overwrite=overwrite)
+        code = 0
+    else:
+        if (nproc > 1):
+            warnings.warn("Multiprocessing not currently allowed for "+
+                          "tessellation package {}.".format(_tesspkg))
+        # Compile executable if it does not exists
+        if not os.path.isfile(exefile) or recompile:
+            make_vorovol(os.path.join(os.path.dirname(exefile),'Makefile'))
+        # Create output directories
+        outputdir = param['OutputDir']
+        if not os.path.isdir(outputdir):
+            os.mkdir(outputdir)
+        for d in ['vols','adjs','part']:
+            if not os.path.isdir(os.path.join(outputdir,d)):
+                os.mkdir(os.path.join(outputdir,d))
+        # Create command
+        cmd = './{} {}'.format(os.path.basename(exefile),parfile)
+        if outfile is not None:
+            cmd+=' > {}'.format(outfile)
+        # Run
+        curdir = os.getcwd()
+        os.chdir(os.path.dirname(exefile))
+        if verbose:
+            print(cmd)
+        code = os.system(cmd)
+        os.chdir(curdir)
     # Return code
     return code
 
@@ -306,6 +392,8 @@ def make(makefile,product=None,target='all'):
         Exception: If product provided is not created.
 
     """
+    if _tesspkg == 'cgal4py':
+        return
     # Set default makefile & check that it exists
     makefile = os.path.expanduser(makefile)
     if not os.path.isfile(makefile):
@@ -334,6 +422,8 @@ def make_vorovol(makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
             tessellation package is phull.
 
     """
+    if _tesspkg == 'cgal4py':
+        return
     # Check for required qhull library
     if _tesskpg == 'vorovol':
         execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
@@ -356,6 +446,8 @@ def make_library(lib,makefile=_makefile_vorovol,makefile_qhull=_makefile_qhull):
             tessellation package is phull.
 
     """
+    if _tesspkg == 'cgal4py':
+        return
     # Check for required qhull library
     if _tesskpg == 'vorovol':
         execfile_qhull = os.path.join(os.path.dirname(makefile_qhull),'qhull_a.h')
@@ -377,6 +469,8 @@ def make_qhull(makefile=_makefile_qhull):
             :attr:`_makefile_qhull` is used.
     
     """
+    if _tesspkg == 'cgal4py':
+        return
     make(makefile,product=os.path.join(os.path.dirname(makefile),'qhull_a.h'))
     return
 
