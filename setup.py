@@ -12,7 +12,7 @@ setup(
                                   'vorovol/*.c','vorovol/*.h','vorovol/Makefile']},
     version = '0.1.3',
     author = 'Meagan Lang',
-    author_email = 'meagan.lang@vanderbilt.edu',
+    author_email = 'langmm.astro@gmail.com',
     url = 'http://vpac00.phy.vanderbilt.edu/~langmm/index.html',
     description = 'Tesselation based Recovery of Amorphous halo Concentrations',
     classifiers = ["Programming Language :: Python","Operating System :: OS Independent",
